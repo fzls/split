@@ -6,17 +6,27 @@
  * Time: 10:18 AM
  */
 
-namespace Split\Algorithms;
+namespace Split\Impl\Algorithms;
+
+use Illuminate\Support\Collection;
 
 class WeightedSample {
     function random_01() {
         return (float)mt_rand() / (float)mt_getrandmax();
     }
 
+    /**
+     * @param $experiment
+     *
+     * @return mixed
+     */
     function choose_alternative($experiment) {
-        $weights = array_pluck($experiment->alternatives, 'weight');
+        /**
+         * @var $weights Collection
+         */
+        $weights = $experiment->alternatives->pluck('weight');
 
-        $total = array_reduce($weights, function ($carry, $weight) { return $carry + $weight; });
+        $total = $weights->sum();
         $point = $this->random_01() * $total;
 
         foreach ($experiment->alternatives as $alternative) {
