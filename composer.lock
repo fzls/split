@@ -4,8 +4,8 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "1d7052b87e6fe9cb5448c3dc31a2f4b9",
-    "content-hash": "b4c292af0575f27faba5cae7165940c6",
+    "hash": "71fee6bbb54f35ebc801830bea5ff0a9",
+    "content-hash": "d5f4c131bb1cdd32c303ef085103b459",
     "packages": [
         {
             "name": "barryvdh/laravel-ide-helper",
@@ -677,6 +677,40 @@
                 "parser"
             ],
             "time": "2014-09-09 13:34:57"
+        },
+        {
+            "name": "gburtini/distributions",
+            "version": "dev-master",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/gburtini/Probability-Distributions-for-PHP.git",
+                "reference": "0ee96830e95740e235b2452c07805f721e9eb49b"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://packagist.phpcomposer.com/files/gburtini/Probability-Distributions-for-PHP/0ee96830e95740e235b2452c07805f721e9eb49b.zip",
+                "reference": "0ee96830e95740e235b2452c07805f721e9eb49b",
+                "shasum": ""
+            },
+            "require-dev": {
+                "phpunit/php-code-coverage": "^2.2",
+                "phpunit/phpunit": "4.4.*"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-0": {
+                    "gburtini\\Distributions": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "authors": [
+                {
+                    "name": "Giuseppe Burtini",
+                    "email": "joe@truephp.com"
+                }
+            ],
+            "description": "PHP implementation of a number of statistical probability distributions: normal, beta, gamma, etc.",
+            "time": "2016-06-22 15:05:23"
         },
         {
             "name": "jakub-onderka/php-console-color",
@@ -3776,7 +3810,7 @@
         }
     ],
     "aliases": [],
-    "minimum-stability": "stable",
+    "minimum-stability": "dev",
     "stability-flags": [],
     "prefer-stable": false,
     "prefer-lowest": false,

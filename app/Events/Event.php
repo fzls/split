@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Events;
+namespace Split\Events;
 
 abstract class Event
 {

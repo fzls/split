@@ -153,16 +153,15 @@ return [
         /*
          * Application Service Providers...
          */
-        App\Providers\AppServiceProvider::class,
-        App\Providers\AuthServiceProvider::class,
-        App\Providers\EventServiceProvider::class,
-        App\Providers\RouteServiceProvider::class,
+        Split\Providers\AppServiceProvider::class,
+        Split\Providers\AuthServiceProvider::class,
+        Split\Providers\EventServiceProvider::class,
+        Split\Providers\RouteServiceProvider::class,
 
         /*
          * Laravel 5 IDE Helper Generator
          */
         Barryvdh\LaravelIdeHelper\IdeHelperServiceProvider::class,
-
     ],
 
     /*
