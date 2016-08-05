@@ -35,10 +35,10 @@ class DualAdapter implements ArrayLike {
             $this->adapter = env('DUAL_ADAPTER_LOGGED_OUT_ADAPTER');
         }
         switch ($this->adapter) {
-            case 'Redis':
+            case 'redis':
                 $this->adapter = new RedisAdapter();
                 break;
-            case 'Cookie':
+            case 'cookie':
                 $this->adapter = new CookieAdapter();
                 break;
             case 'session':
