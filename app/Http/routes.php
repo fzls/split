@@ -12,6 +12,7 @@
 */
 
 use gburtini\Distributions\Beta;
+use Split\Impl\Persistence\CookieAdapter;
 
 Route::get('/', function () {
     return view('welcome');
@@ -24,9 +25,9 @@ Route::get('/home', 'HomeController@index');
 //TODO: add a/b testing logic and admin view
 
 Route::get('/test', function (Request $request) {
-    $p='Cache';
-    /* @var $p Cache*/
-    Cookie::queue(Cookie::make('test','this is a test',50));
-    echo Cookie::get('test');
-
+    $test = 1;
+    var_dump($test);
+    $test = collect([1,2,3]);
+    var_dump($test);
+    echo $test->implode('.');
 });
