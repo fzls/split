@@ -4,4 +4,4 @@ This is a PHP version of [splitrb/split](https://github.com/splitrb/split), base
 # TODO:
 - [ ] Porting logic
 - [ ] Porting admin view
-- [ ]  Porting tests
+- [ ] Porting tests
