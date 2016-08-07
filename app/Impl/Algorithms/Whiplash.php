@@ -10,8 +10,9 @@ namespace Split\Impl\Algorithms;
 
 
 use gburtini\Distributions\Beta;
+use Split\Contracts\Algorithm\SamplingAlgorithm;
 
-class Whiplash {
+class Whiplash implements SamplingAlgorithm{
     const FAIRNESS_CONSTANT = 7;
 
     function choose_alternative($experiment) {

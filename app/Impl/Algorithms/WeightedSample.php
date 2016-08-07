@@ -9,8 +9,9 @@
 namespace Split\Impl\Algorithms;
 
 use Illuminate\Support\Collection;
+use Split\Contracts\Algorithm\SamplingAlgorithm;
 
-class WeightedSample {
+class WeightedSample implements SamplingAlgorithm{
     function random_01() {
         return (float)mt_rand() / (float)mt_getrandmax();
     }

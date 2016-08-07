@@ -45,6 +45,7 @@ class GoalsCollection {
 
     public function load_from_configuration(){
         /*TODO add after configuration is defined*/
+        return null;
     }
 
     /**
