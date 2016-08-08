@@ -69,7 +69,7 @@ function test_args($a, $b) {
 }
 
 Route::get('/test', function (Request $request) {
-    var_dump(collect([new Test(1,2),new Test(3,4),new Test(5,6),])->map(function (){}));
+    var_dump(implode(',',collect([new Test(1,2),new Test(3,4),new Test(5,6),])->merge(collect([1,2,3,4=>'test']))->toArray()));
 //    var_dump(preg_split("/\:\d(?!\:)/","blue:chen:1:1.3.5")[0]);
 //    $test_preg = collect(['123','1a23','12a3','a123',]);
 //    var_dump($test_preg);

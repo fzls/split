@@ -9,10 +9,15 @@
 namespace Split\Impl;
 
 
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Redis;
 
 class Metric {
     public $name;
+
+    /**
+     * @var Collection
+     */
     public $experiments;
 
     /**
@@ -67,7 +72,49 @@ class Metric {
     }
 
     public static function all(){
-        $redis_metrics = collect(Redis::hgetall('metrics'));/*TODO*/
+        $redis_metrics = collect(Redis::hgetall('metrics'))->map(function ($value,$key){
+            return self::find($key);
+        });
+
+        $configuration_metrics = Configuration::metrics->map(function ($value,$key){
+            return new Metric(['name'=>$key,'experiments'=>$value]);
+        });
+        /*fixme: bitwise or?*/
+        return $redis_metrics->merge($configuration_metrics);
+    }
+
+    public static function possible_experiments($metric_name){
+        $experiments = collect([]);
+        $metric = self::find($metric_name);
+        if ($metric){
+            $experiments->push($metric->experiments);
+        }
+        $experiment = ExperimentCatalog::find($metric_name);
+        if ($experiment){
+            $experiments->push($experiment);
+        }
+        return $experiments->flatten();
+    }
+
+    public function save(){
+        Redis::hset('metrics',$this->name,implode(',',$this->experiments->map(function ($e){return $e->name;})->toArray()));
+    }
+
+    public function complete(){
+        $this->experiments->each(function ($experiment/* @var $experiment Experiment*/){
+            $experiment->complete();/*fixme: seems to not implement in Split*/
+        });
+    }
+
+    private static function normalize_metric($label){
+        if ($label instanceof Collection){
+            $metric_name = $label->keys()->first();
+            $goals = $label->values()->first();
+        }else{
+            $metric_name = $label;
+            $goals = [];
+        }
+        return ['metric_name'=>$metric_name,'goals'=>$goals];
     }
 
 
