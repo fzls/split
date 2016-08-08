@@ -34,18 +34,61 @@ function finished_key($key = null) {
     if ($key) return "$key:finished"; // finished_key($key)
     return finished_key("Test");
 }
-function test_constant_scope(){
-    define('BIG','5<br>');
+
+function test_constant_scope() {
+    define('BIG', '5<br>');
     var_dump(BIG);
 }
 
-function isAssoc($arr) {/* @var $arr Collection*/
-        return $arr->keys()->toArray() !== range(0, count($arr) - 1);
-    }
+class Test {
+    public $t;
+}
+
+function isAssoc($arr) {
+    /* @var $arr Collection */
+    return $arr->keys()->toArray() !== range(0, count($arr) - 1);
+}
+
+function test_args($a, $b) {
+    echo $a, $b;
+    var_dump(func_num_args());
+    var_dump(collect(func_get_args())->splice(2));
+}
 
 Route::get('/test', function (Request $request) {
-    $test = collect(['blue','red','green']);
-    var_dump(isAssoc($test));
+    $t = new Test();
+    $c=1;
+    echo $t instanceof Test.'1<br>';
+    echo !($t instanceof Test).'2<br>';
+    echo $c instanceof Test.'3<br>';
+    echo !$c instanceof Test.'4<br>';
+    $a = collect([1,2,3,4,5]);
+    $c = null;
+    var_dump(is_null($c)?$a:$a->prepend($c));
+//    var_dump(explode(':','chen:1.3:test')[0]);
+//    var_dump(explode(':','chen:1.3:test'));
+//    $control = collect(['Alt 1', 'Alt 2', 'Alt 3',4]);
+//    var_dump($control);
+//    extract(['control'=>$control->first(),'alternatives'=>$control->splice(1)]);
+////    $tmp = $control;
+////    $control = $tmp->first();
+////    $alternatives = $tmp->splice(1);
+//    var_dump($control);
+//    var_dump($alternatives);
+//    test_args(1,2);
+//    test_args(1,2,'test','meow');
+//    test_args(1,2,3,4);
+//    test_args(1,2,3,4,5,6);
+//    $t=new Test();
+//    $t->t='hello ';
+//    echo $t->t;
+//    $t['t']='test ';
+//    echo $t['t'];
+//    echo $t->t;
+//    $nums = collect([1,2,3,4,5,6]);
+//    print_r($nums->groupBy(function ($val,$key){return intval($val%2!=0);}));
+//    $test = collect(['blue','red','green']);
+//    var_dump(isAssoc($test));
 //    $js_id = '/Split/test/Hello';
 //    var_dump($js_id);
 //     $js_id=preg_replace('#/#','--',$js_id);
