@@ -68,9 +68,9 @@ class Experiment implements \ArrayAccess {
         $this->experiment_config_key = "experiment_configurations/$this->name";
     }
 
-    public function finished_key($key = null) {
+    public static function finished_key($key = null) {
         if ($key) return "$key:finished"; // finished_key($key)
-        return $this->finished_key($this->key());//when called finished(), set key to key()
+        return self::finished_key(self::key());//when called finished(), set key to key()
     }
 
     public function set_alternatives_and_options($options) {

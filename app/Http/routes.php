@@ -42,6 +42,19 @@ function test_constant_scope() {
 
 class Test {
     public $t;
+    public $s;
+
+    /**
+     * Test constructor.
+     *
+     * @param $t
+     * @param $s
+     */
+    public function __construct($t, $s) {
+        $this->t = $t;
+        $this->s = $s;
+    }
+
 }
 
 function isAssoc($arr) {
@@ -56,15 +69,24 @@ function test_args($a, $b) {
 }
 
 Route::get('/test', function (Request $request) {
-    $t = new Test();
-    $c=1;
-    echo $t instanceof Test.'1<br>';
-    echo !($t instanceof Test).'2<br>';
-    echo $c instanceof Test.'3<br>';
-    echo !$c instanceof Test.'4<br>';
-    $a = collect([1,2,3,4,5]);
-    $c = null;
-    var_dump(is_null($c)?$a:$a->prepend($c));
+    var_dump(collect([new Test(1,2),new Test(3,4),new Test(5,6),])->map(function (){}));
+//    var_dump(preg_split("/\:\d(?!\:)/","blue:chen:1:1.3.5")[0]);
+//    $test_preg = collect(['123','1a23','12a3','a123',]);
+//    var_dump($test_preg);
+//    var_dump($test_preg->reject(function ($k){
+//        return preg_match("/123/",$k);
+//    }));
+//    echo intval(1==1);
+//    echo intval(1==2);
+//    $t = new Test();
+//    $c=1;
+//    echo $t instanceof Test.'1<br>';
+//    echo !($t instanceof Test).'2<br>';
+//    echo $c instanceof Test.'3<br>';
+//    echo !$c instanceof Test.'4<br>';
+//    $a = collect([1,2,3,4,5]);
+//    $c = null;
+//    var_dump(is_null($c)?$a:$a->prepend($c));
 //    var_dump(explode(':','chen:1.3:test')[0]);
 //    var_dump(explode(':','chen:1.3:test'));
 //    $control = collect(['Alt 1', 'Alt 2', 'Alt 3',4]);
