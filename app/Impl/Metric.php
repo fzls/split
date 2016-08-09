@@ -76,13 +76,18 @@ class Metric {
             return self::find($key);
         });
 
-        $configuration_metrics = Configuration::metrics->map(function ($value,$key){
+        $configuration_metrics = Configuration::metrics()->map(function ($value,$key){
             return new Metric(['name'=>$key,'experiments'=>$value]);
         });
         /*fixme: bitwise or?*/
         return $redis_metrics->merge($configuration_metrics);
     }
 
+    /**
+     * @param $metric_name string
+     *
+     * @return Collection
+     */
     public static function possible_experiments($metric_name){
         $experiments = collect([]);
         $metric = self::find($metric_name);

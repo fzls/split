@@ -13,7 +13,7 @@
 
 use Carbon\Carbon;
 use gburtini\Distributions\Beta;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection;
 use Split\Impl\Alternative;
 use Split\Impl\Persistence\CookieAdapter;
 use Split\Impl\Zscore;
@@ -68,8 +68,48 @@ function test_args($a, $b) {
     var_dump(collect(func_get_args())->splice(2));
 }
 
+function value_for($hash, $key) {
+    if ($hash->has($key)) return $hash[$key];
+
+    return null;
+}
+
 Route::get('/test', function (Request $request) {
-    var_dump(implode(',',collect([new Test(1,2),new Test(3,4),new Test(5,6),])->merge(collect([1,2,3,4=>'test']))->toArray()));
+    $t = Collection::class;
+    var_dump($t);
+    var_dump(new $t([1,2,3]));
+//    $t = ['sad/test'=>'year','?test[123]'=>999,'. \ + * ? [ ^ ] $ ( ) { } = ! < > | : -'=>100];
+//    var_dump(collect($t)->map(function ($v,$k){
+//            return [preg_quote($k,'/')=>$v];
+//        })->collapse());
+//    echo $p = "/\b(?:".implode('|',$t).")\b|\A\W*\z/i";
+//    var_dump(preg_match($p,"hello green world "));
+//    $t = collect(['color' => 'blue', 'name' => 'feng', 999 => 233,
+//                 collect([1,2,3,collect('hello world')])]);
+//    var_dump($t);
+//    var_dump(collect(json_decode(json_encode($t))));
+//    foreach ($t as $k => $v) {
+//        echo $k, $v, '<br>';
+//    }
+//    echo '...........................<br>';
+//    $t->each(function ($v, $k) {
+//        echo $k, $v, '<br>';
+//    });
+////    var_dump($t['color']);
+////    var_dump($t['colorss']);
+//    var_dump(value_for($t,'color'));
+//    var_dump(value_for($t,'colorss'));
+//    var_dump(isset($t['ccccc']));
+//    $k = collect(null);
+//    foreach ($k as $item) {
+//        echo $item,'test____';
+//    }
+//    echo '2222';
+//    var_dump(\Request::server('HTTP_USER_AGENT'));
+//    var_dump(\Request::all());
+//    var_dump(Request::input('test'));
+//    var_dump(Request::all());
+//    var_dump(implode(',',collect([new Test(1,2),new Test(3,4),new Test(5,6),])->merge(collect([1,2,3,4=>'test']))->toArray()));
 //    var_dump(preg_split("/\:\d(?!\:)/","blue:chen:1:1.3.5")[0]);
 //    $test_preg = collect(['123','1a23','12a3','a123',]);
 //    var_dump($test_preg);
