@@ -13,6 +13,8 @@ interface ArrayLike extends \ArrayAccess
 {
 
     /**
+     * delete a key from the container.
+     * 
      * @param string $key
      *
      * @return void
@@ -21,6 +23,8 @@ interface ArrayLike extends \ArrayAccess
 
 
     /**
+     * return the keys of the container.
+     * 
      * @return Collection
      */
     public function keys();

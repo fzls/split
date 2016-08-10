@@ -162,6 +162,11 @@ return [
          * Laravel 5 IDE Helper Generator
          */
         Barryvdh\LaravelIdeHelper\IdeHelperServiceProvider::class,
+
+        /*
+         * Split service provider
+         * */
+        Split\Providers\SplitServiceProvider::class,
     ],
 
     /*

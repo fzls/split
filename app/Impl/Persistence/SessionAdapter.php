@@ -11,6 +11,8 @@ namespace Split\Impl\Persistence;
 
 use Illuminate\Support\Collection;
 use Session;
+use Config;
+
 use Split\Contracts\Persistence\ArrayLike;
 
 class SessionAdapter implements ArrayLike {
@@ -23,15 +25,14 @@ class SessionAdapter implements ArrayLike {
 
     /**
      * SessionAdapter constructor.
-     *
-     * @param $session_namespace
      */
     public function __construct() {
-        $this->session_namespace = 'split';
+        $this->session_namespace = Config::get('split.session_namespace');
+        
         if (!Session::has($this->session_namespace)) {
             Session::put($this->session_namespace, collect([]));
         }
-        $this->session=Session::get($this->session_namespace);
+        $this->session = Session::get($this->session_namespace);
     }
 
 
@@ -52,7 +53,7 @@ class SessionAdapter implements ArrayLike {
     }
 
     public function offsetSet($offset, $value) {
-        $this->session->put($offset,$value);
+        $this->session->put($offset, $value);
     }
 
     public function offsetUnset($offset) {

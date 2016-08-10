@@ -12,6 +12,8 @@ namespace Split\Impl\Persistence;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Cookie;
+use Config;
+
 use Split\Contracts\Persistence\ArrayLike;
 
 /**
@@ -44,19 +46,17 @@ class CookieAdapter implements ArrayLike {
      * CookieAdapter constructor.
      */
     public function __construct() {
-        /*fixme : add context for customize*/
-        $this->cookie_namespace = 'split';
-        $this->expires = env('COOKIE_ADAPTER_EXPIRES',60*365);/*one year from now*/
+        $this->cookie_namespace = Config::get('split.cookie_namespace');
+        $this->expires = Config::get('split.cookie_expires');
         $this->buffer = $this->hash();
     }
 
     public function delete($key) {
-        $this->buffer->forget($key);
-        $this->set_cookie($this->buffer);
+        $this->set_cookie($this->buffer->forget($key));
     }
 
     public function keys() {
-        $this->buffer->keys();
+        return $this->buffer->keys();
     }
 
     public function offsetExists($offset) {
@@ -68,8 +68,7 @@ class CookieAdapter implements ArrayLike {
     }
 
     public function offsetSet($offset, $value) {
-        $this->buffer->put($offset, $value);
-        $this->set_cookie($this->buffer);
+        $this->set_cookie($this->buffer->put($offset, $value));
     }
 
     public function offsetUnset($offset) {
@@ -77,11 +76,11 @@ class CookieAdapter implements ArrayLike {
     }
 
     /**
-     * deserilize data from user cookie into buffer for alter
+     * deserialize data from user cookie into buffer for modification
      * @return Collection
      */
     public function hash() {
-        if(isset($this->buffer) && !is_null($this->buffer)){
+        if ($this->buffer){
             return $this->buffer;
         }
         if (Cookie::has($this->cookie_namespace)) {

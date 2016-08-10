@@ -40,22 +40,6 @@ function test_constant_scope() {
     var_dump(BIG);
 }
 
-class Test {
-    public $t;
-    public $s;
-
-    /**
-     * Test constructor.
-     *
-     * @param $t
-     * @param $s
-     */
-    public function __construct($t, $s) {
-        $this->t = $t;
-        $this->s = $s;
-    }
-
-}
 
 function isAssoc($arr) {
     /* @var $arr Collection */
@@ -67,17 +51,124 @@ function test_args($a, $b) {
     var_dump(func_num_args());
     var_dump(collect(func_get_args())->splice(2));
 }
+//
+//function value_for($hash, $key) {
+//    if ($hash->has($key)) return $hash[$key];
+//
+//    return null;
+//}
+class A_chen{
+    public $uuid;
 
-function value_for($hash, $key) {
-    if ($hash->has($key)) return $hash[$key];
+    /**
+     * A constructor.
+     *
+     * @param $uuid
+     */
+    public function __construct($uuid) { $this->uuid = $uuid; }
 
-    return null;
 }
 
+class B_chen{
+    public $a;
+
+    /**
+     * B constructor.
+     *
+     * @param $a
+     */
+    public function __construct(A_chen $a) { $this->a = $a; }
+
+}
+
+
+class Test {
+    public $t;
+    public $s;
+
+    /**
+     * Test constructor.
+     *
+     * @param $t
+     * @param $s
+     */
+//    public function __construct($t, $s) {
+//        $this->t = $t;
+//        $this->s = $s;
+//    }
+    public function testa(){
+        return $this;
+    }
+
+}
+
+function add_minus($a,$b){
+    return collect([$a+$b,$a-$b]);
+}
 Route::get('/test', function (Request $request) {
-    $t = Collection::class;
-    var_dump($t);
-    var_dump(new $t([1,2,3]));
+    var_dump(\Split\Impl\Persistence\adapter());
+    var_dump(App::make('split_config'));
+//    var_dump(explode('|',null));
+//    $a=1;$b=2;
+//    list($a,$b) = add_minus(999,666);
+//    var_dump($a);
+//    var_dump($b);
+//    $t = new Test();
+//    var_dump($t);
+//    var_dump($t->testa());
+//    var_dump($t->t);
+//    $redis = App::make('split_redis');
+//    var_dump($redis);
+//    var_dump($redis->get('chen'));
+//    var_dump($redis->keys('*'));
+//    var_dump($redis->time());
+
+//    var_dump(Request::has('user_id'));
+//    var_dump(App::make('test'));
+////    sleep(2);
+//    var_dump(App::make('test'));
+//    var_dump(App::make('split_redis')->set('chen','test'));
+//    var_dump(App::make('split_redis')->keys('*'));
+//    var_dump(Redis::keys('*'));
+//    var_dump(new B_chen());
+//    var_dump(Request::get('user_id'));
+//    var_dump(Request::input('user_id'));
+//    var_dump(Request::all());
+//    var_dump(Config::all());
+//    $t = new Test();
+//    var_dump(isset($t));
+//    var_dump(isset($t->t));
+//    var_dump(isset($t->s));
+//    var_dump(is_null($t->s));
+//    var_dump(is_null($t->s));
+//    if ($t->t){
+//        echo 'true';
+//    }else{
+//        echo 'false';
+//    }
+//    $c = collect(['name' => 1, 2, 3]);
+//    var_dump($c);
+//    var_dump($c->put('test',123));
+//    var_dump($c);
+
+//    $c['name']=2;
+//    var_dump($c);
+//    $c['test']=2;
+//    var_dump($c);
+//    $c['1111']=2;
+//    var_dump($c);
+//    $c['meow']=2;
+//    var_dump($c);
+//    $c->put('name',100);
+//    var_dump($c);
+//    $adapters = \Config::get('split.adapters');
+//    $adapter = \Config::get('split.adapter');
+//    var_dump($adapters);
+//    var_dump($adapter);
+//    var_dump(new $adapters[$adapter]());
+//    $t = Collection::class;
+//    var_dump($t);
+//    var_dump(new $t([1,2,3]));
 //    $t = ['sad/test'=>'year','?test[123]'=>999,'. \ + * ? [ ^ ] $ ( ) { } = ! < > | : -'=>100];
 //    var_dump(collect($t)->map(function ($v,$k){
 //            return [preg_quote($k,'/')=>$v];

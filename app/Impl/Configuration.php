@@ -10,10 +10,19 @@ namespace Split\Impl;
 
 
 use Illuminate\Support\Collection;
+use Config;
+
 use Split\Impl\Algorithms\WeightedSample;
 use Split\Impl\Persistence\SessionAdapter;
 
+/**
+ * Class Configuration
+ * @package Split\Impl
+ */
 class Configuration {
+    /**
+     * @var
+     */
     public $bots;
     public $robot_regex;
     public $ignore_ip_addresses;
@@ -40,12 +49,18 @@ class Configuration {
     public $redis_url;
 
     /**
-     * @var Collection
+     * @var Collection When init from outside, wrap it in collect()
      */
     public $experiments;
 
     public $metrics;
+    public $experiment_config;
 
+    /**
+     * return the collection of the robots
+     *
+     * @return Collection
+     */
     public function bots() {
         if (is_null($this->bots)) {
             $this->bots = collect(
@@ -119,32 +134,56 @@ class Configuration {
         return $this->bots;
     }
 
+    /**
+     * Set the experiments, should be a collection, if not, exception will be threw
+     *
+     * @param Collection $experiments
+     *
+     * @throws InvalidExperimentsFormatError
+     */
     public function set_experiments($experiments) {
-        if (!$this->experiments instanceof Collection || !is_array($experiments))
+        if (!$this->experiments instanceof Collection)
             throw new InvalidExperimentsFormatError("Experiments must be a Hash");
         $this->experiments = $experiments;
     }
 
+    /**
+     * Check if the split is enabled
+     *
+     * @return bool
+     */
     public function is_disabled() {
         return !$this->enabled;
     }
 
+    /**
+     * Fetch experiment from the configuration's defined experiments
+     *
+     * @param string $name
+     *
+     * @return Experiment
+     */
     public function experiment_for($name) {
         if ($this->normalized_experiments()) {
             return $this->normalized_experiments()[$name];
         }
     }
 
+    /**
+     * Get metrics from the experiment arrays
+     *
+     * @return Collection
+     */
     public function metrics() {
         if (is_null($this->metrics)) {
             $this->metrics = collect([]);
             if ($this->experiments) {
-                foreach ($this->experiments as $key => $value) {
-                    $_metrics = $this->value_for($value, 'metric');
+                foreach ($this->experiments as $experiment_name => $settings) {
+                    $_metrics = $this->$this->value_for($settings, 'metric');
                     foreach (collect($_metrics) as $metric_name) {
                         if ($metric_name) {
                             if (!isset($this->metrics[$metric_name])) $this->metrics[$metric_name] = collect([]);
-                            $this->metrics[$metric_name]->push(new Experiment($key));
+                            $this->metrics[$metric_name]->push(new Experiment($experiment_name));
                         }
                     }
 
@@ -155,73 +194,132 @@ class Configuration {
         return $this->metrics;
     }
 
+    /**
+     * Normalized the experiments get from the outside like the one below with yaml or json or set at runtime, and return
+     * the result for extracting
+     * note:all the settings is [array].
+     *
+     * Examples:
+     * Ex1: YAML
+     *   my_experiment:
+     *     alternatives:
+     *       - name: Control Opt
+     *         percent: 67
+     *       - name: Alt One
+     *         percent: 10
+     *       - name: Alt Two
+     *         percent: 23
+     *     metadata:
+     *       Control Opt:
+     *         text: 'Control Option'
+     *       Alt One:
+     *         text: 'Alternative One'
+     *       Alt Two:
+     *         text: 'Alternative Two'
+     *     resettable: false
+     *
+     * EX2: Runtime
+     *      ["my_experiment"=>[
+     *                          "alternatives"=>["control_opt", "other_opt"],
+     *                          "metric"=>"my_metric",
+     *                          ]
+     *      ]
+     *
+     * EX3: JSON
+     *      {"my_experiment":{"alternatives":["control_opt", "other_opt"],"metric":"my_metric"}}
+     *
+     * @return Collection|null
+     */
     public function normalized_experiments() {
         if (is_null($this->experiments)) return null;
 
-        $experiment_config = collect([]);
-        foreach ($this->experiments->keys() as $name) {
-            $experiment_config[$name] = collect([]);
-        }
-
-        foreach ($this->experiments as $experiment_name => $settings) {
-            $alternatives = null;
-            if ($alts = $this->value_for($settings, 'alternatives')) {
-                $alternatives = $this->normalize_alternatives($alts);
+        if (is_null($this->experiment_config)) {
+            $this->experiment_config = collect([]);
+            foreach ($this->experiments->keys() as $name) {
+                $this->experiment_config[$name] = collect([]);
             }
 
-            $experiment_data = [
-                'alternatives' => $alternatives,
-                'goals'        => value_for($settings, 'goals'),
-                'metadata'     => value_for($settings, 'metadata'),
-                'algorithm'    => value_for($settings, 'algorithm'),
-                'resettable'   => value_for($settings, 'resettable'),
-            ];
+            foreach ($this->experiments as $experiment_name => $settings) {
+                $alternatives = null;
+                if ($alts = $this->$this->value_for($settings, 'alternatives')) {
+                    $alternatives = $this->normalize_alternatives($alts);
+                }
 
-            foreach ($experiment_data as $name => $value) {
-                if (!is_null($value))
-                    $experiment_config[$experiment_name][$name] = $value;
+                $experiment_data = [
+                    'alternatives' => $alternatives, /*array*/
+                    'goals'        => $this->value_for($settings, 'goals'),
+                    'metadata'     => $this->value_for($settings, 'metadata'),/*contain the details of the alternative*/
+                    'algorithm'    => $this->value_for($settings, 'algorithm'),/*TODO: set algorithms in the @experiment*/
+                    'resettable'   => $this->value_for($settings, 'resettable'),
+                ];
+
+                foreach ($experiment_data as $name => $value) {
+                    if (!is_null($value))
+                        $this->experiment_config[$experiment_name][$name] = $value;
+                }
             }
         }
-        return $experiment_config;
+
+        return $this->experiment_config;
     }
 
-    public function normalize_alternatives($alternatives){
-        $_gn = collect($alternatives)->reduce(function ($a, $v){
-            $p = $a[0];
-            $n = $a[1];
-            if ($percent = value($v,'percent')){
-                return [$p+$percent,$n+1];
-            }else{
+    /**
+     * Normalize alternatives from the outside
+     *
+     * Normalized format: [control, [experiment_group]]
+     * Ex1:
+     *  before: [['name'=>'Control Opt','percent'=>67],['name'=>'Alt One','percent'=>10],['name'=>'Alt Two','percent'=>23]]
+     *
+     *  after : [['Control Opt'=>0.67], [['Alt One'=>0.1], ['Alt Two'=>0.23]]]
+     *
+     * Ex2:
+     *  before: ['Control Opt', 'Alt One', 'Alt Two']
+     *
+     *  after : ['Control Opt', ['Alt One', 'Alt Two']]
+     *
+     * @param array $alternatives
+     *
+     * @return array
+     */
+    public function normalize_alternatives($alternatives) {
+        list($given_probability, $num_with_probability) = collect($alternatives)->reduce(function ($a, $alternative) {
+            list($p, $n) = $a;
+            if ($percent = $this->value_for($alternative, 'percent')) {
+                return [$p + $percent, $n + 1];
+            } else {
                 return $a;
             }
-        },[0,0]);
-        $given_probability = $_gn[0];
-        $num_with_probability=$_gn[1];
-
+        }, [0, 0]);
         $num_without_probability = count($alternatives) - $num_with_probability;
-        $unassigned_probability = ((100.0-$given_probability)/$num_without_probability/100.0);
+        $unassigned_probability = ((100.0 - $given_probability) / $num_without_probability / 100.0);
 
-        if ($num_with_probability){
-            $alternatives = collect($alternatives)->map(function ($v)use($unassigned_probability){
-                if (($name = $this->value_for($v,'name'))&&($percent = $this->value_for($v,'percent'))){
-                    return [$name=>$percent/100.0];
-                }elseif ($name = $this->value_for($v,'name')){
-                    return [$name=>$unassigned_probability];
-                }else{
-                    return [$v=>$unassigned_probability];
+        if ($num_with_probability) {
+            $alternatives = collect($alternatives)->map(function ($v) use ($unassigned_probability) {
+                if (($name = $this->$this->value_for($v, 'name')) && ($percent = $this->$this->value_for($v, 'percent'))) {
+                    return [$name => $percent / 100.0];
+                } elseif ($name = $this->$this->value_for($v, 'name')) {
+                    return [$name => $unassigned_probability];
+                } else {
+                    return [$v => $unassigned_probability];
                 }
             });
 
-            return [$alternatives->shift(),$alternatives->toArray()];
-        }else{
-            return [array_shift($alternatives),$alternatives];
+            return [$alternatives->shift(), $alternatives->toArray()];
+        } else {
+            return [array_shift($alternatives), $alternatives];
         }
     }
 
-    public function robot_regex(){
-        if (is_null($this->robot_regex)){
-            $this->robot_regex = "/\b(?:".implode('|',$this->escaped_bots()).")\b|\A\W*\z/i";
+    /**
+     * Generate the robot regex by implode the bots array
+     *
+     * @return string
+     */
+    public function robot_regex() {
+        if (is_null($this->robot_regex)) {
+            $this->robot_regex = "/\b(?:" . implode('|', $this->escaped_bots()) . ")\b|\A\W*\z/i";
         }
+
         return $this->robot_regex;
     }
 
@@ -230,27 +328,39 @@ class Configuration {
      * Configuration constructor.
      */
     public function __construct() {
-        $this->ignore_ip_addresses=[];
-        $this->ignore_filter=function (){return Helper::is_robot() || Helper::is_ignored_ip_address();};
-        $this->db_failover = false;
-        $this->db_failover_on_db_error = function ($error){};
-        $this->on_experiment_reset = function ($experiment){};
-        $this->on_experiment_delete = function ($experiment){};
-        $this->on_before_experiment_reset = function ($experiment){};
-        $this->on_before_experiment_delete = function ($experiment){};
-        $this->db_failover_allow_parameter_override=false;
-        $this->allow_multiple_experiments = false;
-        $this->enabled = true;
-        $this->experiments = [];
-        $this->persistence=SessionAdapter::class;
-        $this->persistence_cookie_length=31536000;
-        $this->algorithm=WeightedSample::class;
-        $this->beta_probability_simulations=10000;
+        $ips = Config::get('split.ignore_ip_addresses');
+        if (!is_null(!$ips)) {
+            $this->ignore_ip_addresses = explode('|', $ips);
+        }
+        $this->ignore_filter = function () { return Helper::is_robot() || Helper::is_ignored_ip_address(); };
+        $this->db_failover = Config::get('split.db_failover');
+        $this->db_failover_on_db_error = function ($error) { };
+        $this->on_experiment_reset = function ($experiment) { };
+        $this->on_experiment_delete = function ($experiment) { };
+        $this->on_before_experiment_reset = function ($experiment) { };
+        $this->on_before_experiment_delete = function ($experiment) { };
+        $this->db_failover_allow_parameter_override = Config::get('split.db_failover_allow_parameter_override');
+        $this->allow_multiple_experiments = Config::get('split.allow_multiple_experiments');
+        $this->enabled = Config::get('split.enabled');
+        $this->experiments = [];/*load from json or yaml*/
+        
+        $adapters = Config::get('split.adapters');
+        $adapter = Config::get('split.adapter');
+        $this->persistence = $adapters[$adapter];
+        
+        $this->persistence_cookie_length = Config::get('split.cookie_expires');
+        
+        $algorithms = Config::get('split.algorithms');
+        $algorithm = Config::get('split.algorithm');
+        $this->algorithm = $algorithms[$algorithm];
+        
+        $this->beta_probability_simulations = Config::get('split.beta_probability_simulations');
     }
 
     /**
      * @param $hash Collection
      * @param $key  string
+     *
      * @return mixed
      */
     private function value_for($hash, $key) {
@@ -259,9 +369,9 @@ class Configuration {
         return null;
     }
 
-    public function escaped_bots(){
-        return $this->bots()->map(function ($v,$k){
-            return [preg_quote($k,'/')=>$v];
+    public function escaped_bots() {
+        return $this->bots()->map(function ($v, $k) {
+            return [preg_quote($k, '/') => $v];
         })->collapse();
     }
 }

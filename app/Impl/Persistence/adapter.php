@@ -9,22 +9,16 @@
 namespace Split\Impl\Persistence;
 
 use Illuminate\Support\Collection;
+use Config;
+
 use Split\Contracts\Persistence\ArrayLike;
 
 /**
+ * fetch adapter for user
+ *
  * @return ArrayLike
  */
 function adapter() {
-    static $ADAPTERS = [
-        'cookie'  => 'Split\Impl\Persistence\CookieAdapter',
-        'session' => 'Split\Impl\Persistence\SessionAdapter',
-        'redis'   => 'Split\Impl\Persistence\RedisAdapter',
-        'dual'    => 'Split\Impl\Persistence\DualAdapter',
-    ];
-    $adapter = env('ADAPTER');
-    if (array_key_exists($adapter, $ADAPTERS)) {
-        return new $ADAPTERS[$adapter]();
-    }
-
-    return new $ADAPTERS['dual']();
+    $adapter = \App::make('split_config')->persistence;
+    return new $adapter();
 }

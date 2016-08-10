@@ -10,14 +10,39 @@ namespace Split\Impl;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Redis;
+
+
 use Split\Impl\Zscore;
 
+/**
+ * Class Alternative
+ * @package Split\Impl
+ */
 class Alternative {
+    /**
+     * @var string The name of the alternative
+     */
     public $name;
+    /**
+     * @var string The name of experiment that this alternative belongs to
+     */
     public $experiment_name;
+    /**
+     * @var int The weight of the Alternative
+     */
     public $weight;
+    /**
+     * @var float The probability of being the winner
+     */
     protected $p_winner;
+    /**
+     * @var string The key used to save Alternative's info to the Redis
+     */
     protected $key;
+    /**
+     * @var \Predis\Client The Redis client
+     */
+    private $redis;
 
     /**
      * Alternative constructor.
@@ -37,45 +62,89 @@ class Alternative {
         }
         $p_winner = 0.0;
         $this->key = "$this->experiment_name:$this->name";
+        $this->redis = \App::make('split_redis');
 
     }
 
+    /**
+     * Used in : $arr[(string)$alt] , to make this a valid array offset.
+     *
+     * @return string
+     */
     function __toString() {
         return $this->name;
     }
 
 
     /**
+     * The goals of the alternative, which is also the goals of the experiment this alternative belongs to.
+     *
      * @return Collection
      */
     public function goals() {
         return $this->experiment()->goals;
     }
 
+    /**
+     * Get the probability of this alternative being winner
+     *
+     * @param null|string $goal
+     *
+     * @return float
+     */
     public function p_winner($goal = null) {
         $field = $this->set_prob_field($goal);
-        $this->p_winner = (float)Redis::hget($this->key, $field);
+
+        return $this->p_winner = (float)$this->redis->hget($this->key, $field);
     }
 
+    /**
+     * Save the probability of this alternative being winner
+     *
+     * @param float       $prob
+     * @param null|string $goal
+     */
     public function set_p_winner($prob, $goal = null) {
         $field = $this->set_prob_field($goal);
-        Redis::hset($this->key, $field, (float)$prob);
+        $this->redis->hset($this->key, $field, (float)$prob);
     }
 
+    /**
+     * Get the number of user assigned to in this alternative
+     *
+     * @return int
+     */
     public function participant_count() {
-        return (int)Redis::hget($this->key, 'participant_count');
+        return (int)$this->redis->hget($this->key, 'participant_count');
     }
 
+    /**
+     * Save the number of user assigned to in this alternative
+     *
+     * @param int $count
+     */
     public function set_participant_count($count) {
-        Redis::hset($this->key, 'participant_count', (int)$count);
+        $this->redis->hset($this->key, 'participant_count', (int)$count);
     }
 
+    /**
+     * Get the number of user completed certain goal
+     *
+     * @param null|string $goal
+     *
+     * @return int
+     */
     public function completed_count($goal = null) {
         $field = $this->set_field($goal);
 
-        return (int)Redis::hget($this->key, $field);
+        return (int)$this->redis->hget($this->key, $field);
     }
 
+    /**
+     * Get the total number of user completed each goal
+     *
+     * @return int
+     */
     public function all_completed_count() {
         if ($this->goals()->isEmpty()) {
             return $this->completed_count();
@@ -86,10 +155,22 @@ class Alternative {
         }
     }
 
+    /**
+     * Get the number of user who didn't complete any goal
+     *
+     * @return int
+     */
     public function unfinished_count() {
         return $this->participant_count() - $this->all_completed_count();
     }
 
+    /**
+     * Helper method for formatting completed_count field
+     *
+     * @param string|null $goal
+     *
+     * @return string
+     */
     public function set_field($goal) {
         $field = "completed_count";
         if ($goal) $field .= ":$goal";
@@ -97,6 +178,13 @@ class Alternative {
         return $field;
     }
 
+    /**
+     * Helper method for formatting p_winner field
+     *
+     * @param string|null $goal
+     *
+     * @return string
+     */
     public function set_prob_field($goal) {
         $field = 'p_winner';
         if ($goal) $field .= ":$goal";
@@ -104,42 +192,78 @@ class Alternative {
         return $field;
     }
 
+    /**
+     * Save the completed count
+     *
+     * @param int         $count
+     * @param null|string $goal
+     */
     public function set_completed_count($count, $goal = null) {
         $field = $this->set_field($goal);
-        Redis::hset($this->key, $field, (int)$count);
+        $this->redis->hset($this->key, $field, (int)$count);
     }
 
+    /**
+     * Increment the participation count
+     */
     public function increment_participation() {
-        Redis::hincrby($this->key, 'participant_count', 1);
+        $this->redis->hincrby($this->key, 'participant_count', 1);
     }
 
+    /**
+     * Increment completion count for the goal for this alternative
+     *
+     * @param null|string $goal
+     */
     public function increment_completion($goal = null) {
         $field = $this->set_field($goal);
-        Redis::hincrby($this->key, $field, 1);
+        $this->redis->hincrby($this->key, $field, 1);
     }
 
+    /**
+     * Check if this alternative is the belonging experiment's control alternative
+     *
+     * @return bool
+     */
     public function is_control() {
-        return $this->experiment()->control->name == $this->name;
+        return $this->experiment()->control()->name == $this->name;
     }
 
+    /**
+     * Calculate the conversion rate for the goal(if any)
+     *
+     * @param null|string $goal
+     *
+     * @return float|int
+     */
     public function conversion_rate($goal = null) {
         if ($this->participant_count() == 0) return 0;
 
         return $this->completed_count($goal) / $this->participant_count();
     }
 
+    /**
+     * Get the belonging experiment, return null if not found
+     *
+     * @return null|Experiment
+     */
     public function experiment() {
-        /*fixme : add after @ExperimentCatalog*/
-        return \Split\Impl\ExperimentCatalog::find($this->experiment_name);
+        return ExperimentCatalog::find($this->experiment_name);
     }
 
+    /**
+     * Calculate the z-score of the alternative(use control for comparison)
+     *
+     * @param null|string $goal
+     *
+     * @return float|string
+     */
     public function z_score($goal = null) {
         # p_a = Pa = proportion of users who converted within the experiment split (conversion rate)
         # p_c = Pc = proportion of users who converted within the control split (conversion rate)
         # n_a = Na = the number of impressions within the experiment split
         # n_c = Nc = the number of impressions within the control split
-        $control = $this->experiment()->control;
-        /* @var $control Alternative */
+        $control = $this->experiment()->control();
         $alternative = $this;
         if ($control->name == $alternative->name) return 'N/A';
 
@@ -152,36 +276,44 @@ class Alternative {
         return Zscore::calculate($p_a, $n_a, $p_c, $n_c);
     }
 
+    /**
+     * Save the alternative, used for initialize
+     */
     public function save() {
-        Redis::hsetnx($this->key, 'participant_count', 0);
-        Redis::hsetnx($this->key, 'completed_count', 0);
-        Redis::hsetnx($this->key, 'p_winner', $this->p_winner);
+        $this->redis->hsetnx($this->key, 'participant_count', 0);
+        $this->redis->hsetnx($this->key, 'completed_count', 0);
+        $this->redis->hsetnx($this->key, 'p_winner', $this->p_winner());
     }
 
+    /**
+     * check if this is alternative is valid
+     *
+     * @throws \InvalidArgumentException
+     */
     public function validate() {
-        if (!is_string($this->name) && !$this->hash_with_correct_values($this->name))
+        if (!is_string($this->name)/* && !$this->hash_with_correct_values($this->name)*/)
             throw new \InvalidArgumentException('Alternative must be a string');
     }
 
     public function reset() {
-        Redis::hmset($this->key, 'participant_count', 0, 'completed_count', 0);
+        $this->redis->hmset($this->key, ['participant_count'=> 0, 'completed_count'=> 0]);
         if (!$this->goals()->isEmpty()) {
             foreach ($this->goals() as $goal) {
                 $field = "completed_count:$goal";
-                Redis::hset($this->key, $field, 0);
+                $this->redis->hset($this->key, $field, 0);
             }
         }
     }
 
     public function delete() {
-        Redis::del($this->key);
+        $this->redis->del($this->key);
     }
 
-    private function hash_with_correct_values($name) {
-        /*fixme : the original seems to be wrong it is not necessary to do this*/
+    /*private function hash_with_correct_values($name) {
+       //fixme : the original seems to be wrong it is not necessary to do this
         return true;
 
-    }
+    }*/
 
 
 }

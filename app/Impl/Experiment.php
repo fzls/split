@@ -226,6 +226,9 @@ class Experiment implements \ArrayAccess {
         });
     }
 
+    /**
+     * @return Alternative
+     */
     public function control() {
         return $this->alternatives->first();
     }

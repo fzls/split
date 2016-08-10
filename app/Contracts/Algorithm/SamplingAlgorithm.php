@@ -13,9 +13,10 @@ use Split\Impl\Alternative;
 use Split\Impl\Experiment;
 
 interface SamplingAlgorithm {
-
     /**
-     * @param $experiment Experiment
+     * choose an alternative from the experiment.
+     * 
+     * @param Experiment $experiment
      *
      * @return Alternative
      */

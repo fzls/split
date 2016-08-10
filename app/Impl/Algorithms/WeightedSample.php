@@ -10,20 +10,22 @@ namespace Split\Impl\Algorithms;
 
 use Illuminate\Support\Collection;
 use Split\Contracts\Algorithm\SamplingAlgorithm;
+use Split\Impl\Alternative;
 
-class WeightedSample implements SamplingAlgorithm{
+class WeightedSample implements SamplingAlgorithm {
+
+    /**
+     * generate a random number between 0 and 1 (inclusive).
+     *
+     * @return float
+     */
     function random_01() {
         return (float)mt_rand() / (float)mt_getrandmax();
     }
 
-    /**
-     * @param $experiment
-     *
-     * @return mixed
-     */
     function choose_alternative($experiment) {
         /**
-         * @var $weights Collection
+         * @var Collection $weights 
          */
         $weights = $experiment->alternatives->pluck('weight');
 

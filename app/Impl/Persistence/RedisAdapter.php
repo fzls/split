@@ -10,12 +10,13 @@ namespace Split\Impl\Persistence;
 
 
 use Illuminate\Support\Collection;
-use Auth;
+use Request;
 use Redis;
+use Config;
+
 use Split\Contracts\Persistence\ArrayLike;
 
 class RedisAdapter implements ArrayLike {
-    /*TODO test it*/
     protected $expire_seconds;
     /**
      *  scheme: namespace:{user_id}
@@ -33,12 +34,12 @@ class RedisAdapter implements ArrayLike {
      * RedisAdapter constructor.
      */
     public function __construct() {
-        $key = Auth::user()->id;
-        $namespace = env('REDIS_ADAPTER_USER_NAMESPACE', 'persistence');
+        $key = Request::get('user_id');/*get from url or request(post)*/
+        $namespace = Config::get('split.redis_namespace');
 
-        $this->expire_seconds=env('REDIS_ADAPTER_EXPIRE_SECONDS');
+        $this->expire_seconds=Config::get('split.redis_expires');
         $this->redis_key = $namespace . ':' . $key;
-        $this->redis = Redis::connection();
+        $this->redis = \App::make('split_redis');
     }
 
 

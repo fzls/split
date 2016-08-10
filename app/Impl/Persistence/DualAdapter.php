@@ -10,8 +10,10 @@ namespace Split\Impl\Persistence;
 
 
 use Illuminate\Support\Collection;
+use Request;
+use Config;
+
 use Split\Contracts\Persistence\ArrayLike;
-use Auth;
 
 class DualAdapter implements ArrayLike {
     protected $logged_in;
@@ -23,33 +25,16 @@ class DualAdapter implements ArrayLike {
 
     /**
      * DualAdapter constructor.
-     *
-     * @param $logged_in_adapter
-     * @param $logged_out_adapter
      */
     public function __construct() {
-        $this->logged_in = Auth::check();
+        $this->logged_in = Request::has('user_id');
         if ($this->logged_in) {
-            $this->adapter = env('DUAL_ADAPTER_LOGGED_IN_ADAPTER');
+            $adapter = Config::get('split.logged_in_adapter');
         } else {
-            $this->adapter = env('DUAL_ADAPTER_LOGGED_OUT_ADAPTER');
+            $adapter = Config::get('split.logged_out_adapter');
         }
-        switch ($this->adapter) {
-            case 'redis':
-                $this->adapter = new RedisAdapter();
-                break;
-            case 'cookie':
-                $this->adapter = new CookieAdapter();
-                break;
-            case 'session':
-                $this->adapter = new SessionAdapter();
-                break;
-            default:
-                if ($this->logged_in)
-                    $this->adapter = new RedisAdapter();
-                else
-                    $this->adapter = new CookieAdapter();
-        }
+        $adapters = Config::get('split.adapters');
+        $this->adapter = new $adapters[$adapter]();
     }
 
     public function delete($key) {
@@ -73,7 +58,7 @@ class DualAdapter implements ArrayLike {
     }
 
     public function offsetUnset($offset) {
-        $this->offsetUnset($offset);
+        $this->delete($offset);
     }
 
 
