@@ -11,9 +11,6 @@ namespace Split\Impl;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Redis;
 
-
-use Split\Impl\Zscore;
-
 /**
  * Class Alternative
  * @package Split\Impl
@@ -47,16 +44,18 @@ class Alternative {
     /**
      * Alternative constructor.
      *
-     * @param mixed  $name
+     * @param string|Collection  $name
      * @param string $experiment_name
      */
     public function __construct($name, $experiment_name) {
         $this->experiment_name = $experiment_name;
 
         if ($name instanceof Collection) {
+            /*['blue'=>'23']*/
             $this->name = $name->keys()->first();
             $this->weight = $name->values()->first();
         } else {
+            /*'blue'*/
             $this->name = $name;
             $this->weight = 1;
         }
@@ -248,7 +247,7 @@ class Alternative {
      * @return null|Experiment
      */
     public function experiment() {
-        return ExperimentCatalog::find($this->experiment_name);
+        return \App::make('split_catalog')->find($this->experiment_name);
     }
 
     /**

@@ -48,7 +48,7 @@ class RedisAdapter implements ArrayLike {
     }
 
     public function keys() {
-        $this->redis->hKeys($this->redis_key);
+        return collect($this->redis->hKeys($this->redis_key));
     }
 
     public function offsetExists($field) {

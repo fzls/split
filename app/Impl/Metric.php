@@ -30,12 +30,12 @@ class Metric {
     }
 
     public static function load_from_redis($name){
-        $metric = Redis::hget('metrics',$name);
+        $metric = \App::make('split_redis')->hget('metrics',$name);
         if ($metric){
             $experiment_names = collect(explode(',',$metric));
 
             $experiments = $experiment_names->map(function ($experiment_name){
-                ExperimentCatalog::find($experiment_name);
+                \App::make('split_catalog')->find($experiment_name);
             });
 
             return new Metric(['name'=>$name, 'experiments'=>$experiments]);
@@ -45,9 +45,9 @@ class Metric {
     }
 
     public static function load_from_configuration($name){
-        $metrics = Configuration::metrics();
+        $metrics = \App::make('split_config')->metrics();
 
-        if ($metrics&& $metrics[$name]){
+        if ($metrics&& $metrics->contains($name)){
             return new Metric(['experiments'=>$metrics[$name],'name'=>$name]);
         }else{
             return null;
@@ -72,14 +72,13 @@ class Metric {
     }
 
     public static function all(){
-        $redis_metrics = collect(Redis::hgetall('metrics'))->map(function ($value,$key){
+        $redis_metrics = collect(\App::make('split_redis')->hgetall('metrics'))->map(function ($value,$key){
             return self::find($key);
         });
 
-        $configuration_metrics = Configuration::metrics()->map(function ($value,$key){
+        $configuration_metrics = \App::make('split_config')->metrics()->map(function ($value,$key){
             return new Metric(['name'=>$key,'experiments'=>$value]);
         });
-        /*fixme: bitwise or?*/
         return $redis_metrics->merge($configuration_metrics);
     }
 
@@ -94,7 +93,7 @@ class Metric {
         if ($metric){
             $experiments->push($metric->experiments);
         }
-        $experiment = ExperimentCatalog::find($metric_name);
+        $experiment = \App::make('split_catalog')->find($metric_name);
         if ($experiment){
             $experiments->push($experiment);
         }
@@ -102,7 +101,7 @@ class Metric {
     }
 
     public function save(){
-        Redis::hset('metrics',$this->name,implode(',',$this->experiments->map(function ($e){return $e->name;})->toArray()));
+        \App::make('split_redis')->hset('metrics',$this->name,implode(',',$this->experiments->map(function ($e){return $e->name;})->toArray()));
     }
 
     public function complete(){
@@ -119,7 +118,7 @@ class Metric {
             $metric_name = $label;
             $goals = [];
         }
-        return ['metric_name'=>$metric_name,'goals'=>$goals];
+        return [$metric_name,$goals];
     }
 
 

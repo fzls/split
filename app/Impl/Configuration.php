@@ -161,11 +161,11 @@ class Configuration {
      *
      * @param string $name
      *
-     * @return Experiment
+     * @return array
      */
     public function experiment_for($name) {
         if ($this->normalized_experiments()) {
-            return $this->normalized_experiments()[$name];
+            return Helper::value_for($this->normalized_experiments(),$name);
         }
     }
 
@@ -179,7 +179,7 @@ class Configuration {
             $this->metrics = collect([]);
             if ($this->experiments) {
                 foreach ($this->experiments as $experiment_name => $settings) {
-                    $_metrics = $this->$this->value_for($settings, 'metric');
+                    $_metrics = Helper::value_for($settings, 'metric');
                     foreach (collect($_metrics) as $metric_name) {
                         if ($metric_name) {
                             if (!isset($this->metrics[$metric_name])) $this->metrics[$metric_name] = collect([]);
@@ -241,16 +241,16 @@ class Configuration {
 
             foreach ($this->experiments as $experiment_name => $settings) {
                 $alternatives = null;
-                if ($alts = $this->$this->value_for($settings, 'alternatives')) {
+                if ($alts = Helper::value_for($settings, 'alternatives')) {
                     $alternatives = $this->normalize_alternatives($alts);
                 }
 
                 $experiment_data = [
                     'alternatives' => $alternatives, /*array*/
-                    'goals'        => $this->value_for($settings, 'goals'),
-                    'metadata'     => $this->value_for($settings, 'metadata'),/*contain the details of the alternative*/
-                    'algorithm'    => $this->value_for($settings, 'algorithm'),/*TODO: set algorithms in the @experiment*/
-                    'resettable'   => $this->value_for($settings, 'resettable'),
+                    'goals'        => Helper::value_for($settings, 'goals'),
+                    'metadata'     => Helper::value_for($settings, 'metadata'),/*contain the details of the alternative*/
+                    'algorithm'    => Helper::value_for($settings, 'algorithm'),/*TODO: set algorithms in the @experiment*/
+                    'resettable'   => Helper::value_for($settings, 'resettable'),
                 ];
 
                 foreach ($experiment_data as $name => $value) {
@@ -284,7 +284,7 @@ class Configuration {
     public function normalize_alternatives($alternatives) {
         list($given_probability, $num_with_probability) = collect($alternatives)->reduce(function ($a, $alternative) {
             list($p, $n) = $a;
-            if ($percent = $this->value_for($alternative, 'percent')) {
+            if ($percent = Helper::value_for($alternative, 'percent')) {
                 return [$p + $percent, $n + 1];
             } else {
                 return $a;
@@ -295,9 +295,9 @@ class Configuration {
 
         if ($num_with_probability) {
             $alternatives = collect($alternatives)->map(function ($v) use ($unassigned_probability) {
-                if (($name = $this->$this->value_for($v, 'name')) && ($percent = $this->$this->value_for($v, 'percent'))) {
+                if (($name = Helper::value_for($v, 'name')) && ($percent = Helper::value_for($v, 'percent'))) {
                     return [$name => $percent / 100.0];
-                } elseif ($name = $this->$this->value_for($v, 'name')) {
+                } elseif ($name = Helper::value_for($v, 'name')) {
                     return [$name => $unassigned_probability];
                 } else {
                     return [$v => $unassigned_probability];
@@ -317,7 +317,7 @@ class Configuration {
      */
     public function robot_regex() {
         if (is_null($this->robot_regex)) {
-            $this->robot_regex = "/\b(?:" . implode('|', $this->escaped_bots()) . ")\b|\A\W*\z/i";
+            $this->robot_regex = "/\b(?:" . implode('|', $this->escaped_bots()->keys()->toArray()) . ")\b|\A\W*\z/i";
         }
 
         return $this->robot_regex;
@@ -329,7 +329,7 @@ class Configuration {
      */
     public function __construct() {
         $ips = Config::get('split.ignore_ip_addresses');
-        if (!is_null(!$ips)) {
+        if (!is_null($ips)) {
             $this->ignore_ip_addresses = explode('|', $ips);
         }
         $this->ignore_filter = function () { return Helper::is_robot() || Helper::is_ignored_ip_address(); };
@@ -339,10 +339,13 @@ class Configuration {
         $this->on_experiment_delete = function ($experiment) { };
         $this->on_before_experiment_reset = function ($experiment) { };
         $this->on_before_experiment_delete = function ($experiment) { };
+        $this->on_trial_complete = function ($trial){};
+        $this->on_trial_choose = function ($trial){};
+        $this->on_trial = function ($trial){};
         $this->db_failover_allow_parameter_override = Config::get('split.db_failover_allow_parameter_override');
         $this->allow_multiple_experiments = Config::get('split.allow_multiple_experiments');
         $this->enabled = Config::get('split.enabled');
-        $this->experiments = [];/*load from json or yaml*/
+        $this->experiments = collect([]);/*load from json or yaml*/
         
         $adapters = Config::get('split.adapters');
         $adapter = Config::get('split.adapter');
@@ -357,17 +360,7 @@ class Configuration {
         $this->beta_probability_simulations = Config::get('split.beta_probability_simulations');
     }
 
-    /**
-     * @param $hash Collection
-     * @param $key  string
-     *
-     * @return mixed
-     */
-    private function value_for($hash, $key) {
-        if ($hash->has($key)) return $hash[$key];
-
-        return null;
-    }
+    
 
     public function escaped_bots() {
         return $this->bots()->map(function ($v, $k) {

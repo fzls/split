@@ -41,15 +41,15 @@ class SessionAdapter implements ArrayLike {
     }
 
     public function keys() {
-        $this->session->keys();
+        return $this->session->keys();
     }
 
     public function offsetExists($offset) {
-        $this->session->has($offset);
+        return $this->session->has($offset);
     }
 
     public function offsetGet($offset) {
-        $this->session->get($offset);
+        return $this->session->get($offset);
     }
 
     public function offsetSet($offset, $value) {

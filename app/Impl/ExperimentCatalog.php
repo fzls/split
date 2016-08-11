@@ -10,48 +10,81 @@ namespace Split\Impl;
 
 
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Redis;
 
+/**
+ * Class ExperimentCatalog
+ * @package Split\Impl
+ */
 class ExperimentCatalog {
-    public static function all() {
-        return collect(Redis::semember('experiments'))->map(function ($es) {
-            return self::find($es);
+    protected $redis;
+
+    /**
+     * ExperimentCatalog constructor.
+     *
+     * @param $redis
+     */
+    public function __construct() { $this->redis = \App::make('split_redis'); }
+
+
+    /**
+     * Return all the experiments
+     *
+     * @return Collection
+     */
+    public function all() {
+        return collect($this->redis->smembers('experiments'))->map(function ($es) {
+            return $this->find($es);
         })->reject(function ($e) {
             return $e == null;
         });
     }
 
-    public static function all_active_first() {
-        self::all()->groupBy(function ($e/* @var $e Experiment */) {
-            return intval($e->winner());/*0=>not winners, 1=> winner*/
-        })->map(function ($es/* @var $es Collection */) {
-            return $es->sortBy(function ($e) {
+    /**
+     * Get the experiments, and make those has no winner to be the first
+     */
+    public function all_active_first() {
+        self::all()->groupBy(function (Experiment $e) {
+            return intval($e->has_winner());/*0=>not winners, 1=> winner*/
+        })->map(function (Collection $es) {
+            return $es->sortBy(function (Experiment $e) {
                 return $e->name;
             });
         })->flatten();
     }
 
-    public static function find($name) {
-        if (!Redis::exists($name)) return null;
-        $e = new Experiment($name);/*fixme: find alternative of tap*/
+    /**
+     * Find a experiment by name
+     *
+     * @param string $name
+     *
+     * @return null|Experiment
+     */
+    public function find($name) {
+        if (!$this->redis->exists($name)) return null;
+        $e = new Experiment($name);
         $e->load_from_redis();
 
         return $e;
     }
 
-    public static function find_or_initialize($metric_descriptor, $control = null, $alternatives = null) {
+    /**
+     * Find a experiment and initialize it
+     *
+     * @param Collection             $metric_descriptor
+     * @param null|string|Collection $control
+     * @param null|Collection        $alternatives
+     *
+     * @return Experiment
+     */
+    public function find_or_initialize(Collection $metric_descriptor, $control = null, $alternatives = null) {
         if (!$alternatives instanceof Collection) {
             $alternatives = collect(func_get_args())->splice(2);
         }
         if ($control instanceof Collection && $alternatives->count() == 0) {
-            extract(['control' => $control->first(), 'alternatives' => $control->splice(1)]);
-            /*same as control, alternatives = control.first, control[1..-1]*/
+            list($control, $alternatives) = [$control->shift(), $control];
         }
 
-        /*experiment_name_with_version, goals*/
-        extract(self::normalize_experiment($metric_descriptor));/*metric_descriptor Collection*/
-        /* @var $experiment_name_with_version string */
-        /* @var $goals Collection */
+        list($experiment_name_with_version, $goals) = $this->normalize_experiment($metric_descriptor);
         $experiment_name = explode(':', $experiment_name_with_version)[0];
 
         return new Experiment($experiment_name, [
@@ -60,23 +93,37 @@ class ExperimentCatalog {
         ]);
     }
 
-    public static function find_or_create($metric_descriptor, $control = null/*, *alternatives*/) {
+    /**
+     * Find a experiment and save it to redis
+     *
+     * @param Collection             $metric_descriptor
+     * @param null|string|Collection $control
+     * @param null|Collection        $alternatives
+     *
+     * @return Experiment
+     */
+    public function find_or_create($metric_descriptor, $control = null, $alternatives = null) {
         $alternatives = collect(func_get_args())->splice(2);
-        $experiment = self::find_or_initialize($metric_descriptor, $control = null, $alternatives);
+        $experiment = self::find_or_initialize($metric_descriptor, $control, $alternatives);
         $experiment->save();
+
         return $experiment;
     }
 
-    private static function normalize_experiment($metric_descriptor){
-        if($metric_descriptor instanceof Collection){
+    /**
+     * @param $metric_descriptor
+     *
+     * @return array
+     */
+    private function normalize_experiment($metric_descriptor) {
+        if ($metric_descriptor instanceof Collection) {
             $experiment_name = $metric_descriptor->keys()->first();
             $goals = [$metric_descriptor->values()->first()];
-        }else{
+        } else {
             $experiment_name = $metric_descriptor;
             $goals = [];
         }
-        return ['experiment_name_with_version'=>$experiment_name,'goals'=>$goals];
+
+        return [$experiment_name, $goals];
     }
-    
-    
 }

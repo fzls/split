@@ -5,16 +5,16 @@ namespace Split\Providers;
 use Carbon\Carbon;
 use Illuminate\Support\ServiceProvider;
 use Split\Impl\Configuration;
+use Split\Impl\ExperimentCatalog;
+use Split\Impl\User;
 
-class SplitServiceProvider extends ServiceProvider
-{
+class SplitServiceProvider extends ServiceProvider {
     /**
      * Bootstrap the application services.
      *
      * @return void
      */
-    public function boot()
-    {
+    public function boot() {
         //
     }
 
@@ -23,19 +23,30 @@ class SplitServiceProvider extends ServiceProvider
      *
      * @return void
      */
-    public function register()
-    {
+    public function register() {
         /*FIXme*/
-        $this->app->singleton('test',function ($app){
+        $this->app->singleton('test', function ($app) {
             return new \A_chen(Carbon::now());
         });
-        $this->app->singleton('split_redis',function ($app){
+
+        $this->app->singleton('split_redis', function ($app) {
             return $this->app->make('redis')->connection();
         });
-        $this->app->singleton('split_config',function ($app){
-           $config = new Configuration();
+
+        $this->app->singleton('split_config', function ($app) {
+            $config = new Configuration();
+
             /*TODO init config*/
+
             return $config;
+        });
+
+        $this->app->singleton('split_catalog', function ($app) {
+            return new ExperimentCatalog();
+        });
+
+        $this->app->singleton('split_user', function ($app) {
+            return new User();
         });
     }
 }

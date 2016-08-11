@@ -9,6 +9,8 @@
 namespace Split\Impl;
 
 
+use Illuminate\Support\Collection;
+
 class Trial {
     /**
      * @var Experiment
@@ -32,18 +34,19 @@ class Trial {
     public function __construct($attrs = []) {
         $attrs = collect($attrs);
         $this->experiment = $attrs->pull('experiment');
-        $this->alternative = $attrs->pull('alternative');
+        $alt_name = $attrs->pull('alternative');
+        $this->alternative = new Alternative($alt_name,$this->experiment->name);
         $this->metadata = $attrs->pull('metadata');
 
-        $this->user = new User($attrs->pull('user'));
+        $this->user = $attrs->pull('user');
         $this->options = $attrs;
 
-        $this->alternative_choosen = false;
+        $this->alternative_choosen = false; /* change to get from redis?*/
     }
 
     public function metadata() {
         if ($this->experiment->metadata && !$this->metadata) {
-            $this->metadata = $this->experiment->metadata[$this->alternative->name];
+            $this->metadata = Helper::value_for($this->experiment->metadata,$this->alternative->name);
         }
 
         return $this->metadata;
@@ -78,7 +81,7 @@ class Trial {
                 });
             }
 
-            /*fixme: run_callback context, Split.configuration.on_trial_complete*/
+            call_user_func(\App::make('split_config')->on_trial_complete, $this);
         }
     }
 
@@ -87,29 +90,31 @@ class Trial {
         if ($this->alternative_choosen) return $this->alternative();
 
         if ($this->override_is_alternative()) {
-            $this->alternative = $this->options['override'];
+            $alt_name = $this->options['override'];
+            $this->alternative = new Alternative($alt_name,$this->experiment->name);
             if ($this->should_store_alternative() && !$this->user[$this->experiment->key()]) {
                 $this->alternative->increment_participation();
-            } elseif ($this->options['disabled'] || env('DISABLED')) {
+            }
+        } elseif ($this->options['disabled'] || \App::make('split_config')->is_disabled()) {
+            $this->alternative = $this->experiment->control();
+        } elseif ($this->experiment->has_winner()) {
+            $this->alternative = $this->experiment->winner();
+        } else {
+            $this->cleanup_old_versions();
+
+            if ($this->exclude_user()) {
                 $this->alternative = $this->experiment->control();
-            } elseif ($this->experiment->has_winner()) {
-                $this->alternative = $this->experiment->winner();
             } else {
-                $this->cleanup_old_versions();
-
-                if ($this->exclude_user()) {
-                    $this->alternative = $this->experiment->control();
+                $value = $this->user[$this->experiment->key()];
+                if ($value) {
+                    $this->alternative = $value;
                 } else {
-                    $value = $this->user[$this->experiment->key()];
-                    if ($value) {
-                        $this->alternative = $value;
-                    } else {
-                        $this->alternative = $this->experiment->next_alternative();
+                    $this->alternative = $this->experiment->next_alternative();
 
-                        $this->alternative->increment_participation();
+                    $this->alternative->increment_participation();
 
-                        /*fixme : run_callback context, Split.configuration.on_trial_choose*/
-                    }
+
+                    call_user_func(\App::make('split_config')->on_trial_choose, $this);
                 }
             }
         }
@@ -119,26 +124,24 @@ class Trial {
         }
         $this->alternative_choosen = true;/*fixme: save to user?*/
 
-        /*fixme: run_callback context, Split.configuration.on_trial unless @options[:disabled] || Split.configuration.disabled?*/
+        if (!($this->options['disabled'] || \App::make('split_config')->is_disabled())) {
+            call_user_func(\App::make('split_config')->on_trial, $this);
+        }
+
 
         return $this->alternative();
     }
 
-    /*fixme
-    def run_callback(context, callback_name)
-      context.send(callback_name, self) if callback_name && context.respond_to?(callback_name, true)
-    end
-    */
-
     private function override_is_alternative() {
-        return $this->experiment->alternatives->map(function ($a) {
-            return $a->name;
-        })->contains($this->options['override']);
+        $names = $this->experiment->alternatives->pluck('name');
+
+        /* @var Collection $names */
+        return $names->contains($this->options['override']);
     }
 
     private function should_store_alternative() {
         if ($this->options['override'] || $this->options['disabled']) {
-            return env('STORE_OVERRIDE');
+            return \App::make("split_config")->store_override;
         } else {
             return !$this->exclude_user();
         }
