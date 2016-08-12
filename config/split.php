@@ -37,7 +37,7 @@ return [
     'adapter'    => env('SPLIT_ADAPTER', 'dual'),
 
     'cookie_namespace' => env('SPLIT_NAMESPACE', 'split'),
-    'cookie_expires'   => env('SPLIT_COOKIE_ADAPTER_EXPIRES', 60 * 365/*mins*/),
+    'cookie_expires'   => env('SPLIT_COOKIE_ADAPTER_EXPIRES', 60 * 24 * 365/*mins*/),
 
     'session_namespace' => env('SPLIT_SESSION_NAMESPACE', 'split'),
 

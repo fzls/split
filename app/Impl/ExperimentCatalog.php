@@ -35,15 +35,18 @@ class ExperimentCatalog {
         return collect($this->redis->smembers('experiments'))->map(function ($es) {
             return $this->find($es);
         })->reject(function ($e) {
-            return $e == null;
+            return $e === null;
         });
     }
 
+
     /**
      * Get the experiments, and make those has no winner to be the first
+     * 
+     * @return Collection Of Experiment
      */
     public function all_active_first() {
-        self::all()->groupBy(function (Experiment $e) {
+        return self::all()->groupBy(function (Experiment $e) {
             return intval($e->has_winner());/*0=>not winners, 1=> winner*/
         })->map(function (Collection $es) {
             return $es->sortBy(function (Experiment $e) {
@@ -118,10 +121,10 @@ class ExperimentCatalog {
     private function normalize_experiment($metric_descriptor) {
         if ($metric_descriptor instanceof Collection) {
             $experiment_name = $metric_descriptor->keys()->first();
-            $goals = [$metric_descriptor->values()->first()];
+            $goals = collect($metric_descriptor->values()->first());
         } else {
             $experiment_name = $metric_descriptor;
-            $goals = [];
+            $goals = collect([]);
         }
 
         return [$experiment_name, $goals];

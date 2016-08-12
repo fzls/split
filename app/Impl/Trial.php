@@ -32,28 +32,27 @@ class Trial {
      * Trial constructor.
      */
     public function __construct($attrs = []) {
-        $attrs = collect($attrs);
+        $attrs            = collect($attrs);
         $this->experiment = $attrs->pull('experiment');
-        $alt_name = $attrs->pull('alternative');
-        $this->alternative = new Alternative($alt_name,$this->experiment->name);
+        $this->set_alternative($attrs->pull('alternative'));
         $this->metadata = $attrs->pull('metadata');
 
-        $this->user = $attrs->pull('user');
+        $this->user    = $attrs->pull('user');
         $this->options = $attrs;
 
         $this->alternative_choosen = false; /* change to get from redis?*/
     }
 
     public function metadata() {
-        if ($this->experiment->metadata && !$this->metadata) {
-            $this->metadata = Helper::value_for($this->experiment->metadata,$this->alternative->name);
+        if ($this->experiment->metadata && is_null($this->metadata)) {
+            $this->metadata = Helper::value_for($this->experiment->metadata, $this->alternative->name);
         }
 
         return $this->metadata;
     }
 
     public function alternative() {
-        if (!$this->alternative) {
+        if (is_null($this->alternative)) {
             $this->alternative = $this->experiment->has_winner() ? $this->experiment->winner() : null;
         }
 
@@ -91,28 +90,27 @@ class Trial {
 
         if ($this->override_is_alternative()) {
             $alt_name = $this->options['override'];
-            $this->alternative = new Alternative($alt_name,$this->experiment->name);
-            if ($this->should_store_alternative() && !$this->user[$this->experiment->key()]) {
+            $this->set_alternative(new Alternative($alt_name, $this->experiment->name));
+            if ($this->should_store_alternative() && is_null($this->user[$this->experiment->key()])) {
                 $this->alternative->increment_participation();
             }
         } elseif ($this->options['disabled'] || \App::make('split_config')->is_disabled()) {
-            $this->alternative = $this->experiment->control();
+            $this->set_alternative($this->experiment->control());
         } elseif ($this->experiment->has_winner()) {
-            $this->alternative = $this->experiment->winner();
+            $this->set_alternative($this->experiment->winner());
         } else {
             $this->cleanup_old_versions();
 
             if ($this->exclude_user()) {
-                $this->alternative = $this->experiment->control();
+                $this->set_alternative($this->experiment->control());
             } else {
                 $value = $this->user[$this->experiment->key()];
                 if ($value) {
-                    $this->alternative = $value;
+                    $this->set_alternative($value);
                 } else {
-                    $this->alternative = $this->experiment->next_alternative();
+                    $this->set_alternative($this->experiment->next_alternative());
 
                     $this->alternative->increment_participation();
-
 
                     call_user_func(\App::make('split_config')->on_trial_choose, $this);
                 }
@@ -122,13 +120,12 @@ class Trial {
         if ($this->should_store_alternative()) {
             $this->user[$this->experiment->key()] = $this->alternative()->name;
         }
-        $this->alternative_choosen = true;/*fixme: save to user?*/
+        $this->alternative_choosen = true;
 
         if (!($this->options['disabled'] || \App::make('split_config')->is_disabled())) {
             call_user_func(\App::make('split_config')->on_trial, $this);
         }
-
-
+        
         return $this->alternative();
     }
 
@@ -154,8 +151,8 @@ class Trial {
     }
 
     private function exclude_user() {
-        return $this->options['exclude'] ||
-        is_null($this->experiment->start_time()) ||
-        $this->user->is_max_experiments_reached($this->experiment->key());
+        return $this->options['exclude']
+               || is_null($this->experiment->start_time())
+               || $this->user->is_max_experiments_reached($this->experiment->key());
     }
 }

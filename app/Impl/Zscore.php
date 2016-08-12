@@ -37,7 +37,7 @@ class Zscore {
 
         # Formula for pooled error of the difference of the means: root(π*(1-π)*(1/na+1/nc)
         # π = (xa + xc) / (na + nc)
-        $pi = ($p_1 * $n_1 + $p_2 * $n_2) / ($n_1 + $n_2);
+        $pi  = ($p_1 * $n_1 + $p_2 * $n_2) / ($n_1 + $n_2);
         $s_p = sqrt($pi * (1 - $pi) * (1 / $n_1 + 1 / $n_2));
 
         # Formula for unpooled error of the difference of the means: root(sa**2/na + sc**2/nc)
@@ -54,5 +54,23 @@ class Zscore {
 
         return $z_score;
 
+    }
+
+    static public function confidence_level($z_score) {
+        if (is_string($z_score)) {
+            return $z_score;
+        }
+
+        $z = abs(round($z_score, 3));
+
+        if ($z >= 2.58) {
+            return '99% confidence';
+        } elseif ($z >= 1.96) {
+            return '95% confidence';
+        } elseif ($z >= 1.65) {
+            return '90% confidence';
+        } else {
+            return 'Insufficient confidence';
+        }
     }
 }

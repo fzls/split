@@ -17,9 +17,9 @@ use Illuminate\Support\Facades\Redis;
 use Split\Contracts\Algorithm\SamplingAlgorithm;
 
 class Experiment implements \ArrayAccess {
-    public $name;
+    public    $name;
     protected $algorithm;
-    public $resettable;
+    public    $resettable;
     /**
      * @var Collection
      */
@@ -55,8 +55,10 @@ class Experiment implements \ArrayAccess {
 
         $this->name = $name;
 
+        /*try to get alternative from options*/
         $this->alternatives = $this->extract_alternatives_from_options($options);
 
+        /*if not given, then try to get from configuration*/
         if ($this->alternatives->isEmpty() && ($exp_config = \App::make('split_config')->experiment_for($name))) {
             $options = collect(
                 [
@@ -95,10 +97,10 @@ class Experiment implements \ArrayAccess {
      */
     public function set_alternatives_and_options($options) {
         $this->alternatives = collect(Helper::value_for($options, 'alternatives'));
-        $this->goals = collect(Helper::value_for($options, 'goals'));
-        $this->resettable = $options['resettable'];
-        $this->algorithm = Helper::value_for($options, 'algorithm');
-        $this->metadata = collect(Helper::value_for($options, 'metadata'));
+        $this->goals        = collect(Helper::value_for($options, 'goals'));
+        $this->resettable   = Helper::value_for($options, 'resettable');
+        $this->algorithm    = Helper::value_for($options, 'algorithm');
+        $this->metadata     = collect(Helper::value_for($options, 'metadata'));
     }
 
     /**
@@ -107,34 +109,35 @@ class Experiment implements \ArrayAccess {
      * @return Collection
      */
     public function extract_alternatives_from_options($options) {
-        $alts = collect(Helper::value_for($options,'alternatives'));
+        $alts = collect(Helper::value_for($options, 'alternatives'));
 
         /*alts = [['a1'=>1,'a2'=>2]]*/
         if ($alts->count() == 1) {
             if (is_array($alts[0])) {
                 $alts = collect($alts[0])->map(function ($item, $key) {
-                    return new Alternative(collect([$key=>$item]),$this->name);
+                    return new Alternative(collect([$key => $item]), $this->name);
                 });
             }
         }
 
         /*alts =[], need to load form outside*/
         if ($alts->isEmpty()) {
+            /*fixme: this[124:133&145:149] seems to be in the wrong place, which is the same as @line 62:71, delete it later*/
             $exp_config = \App::make('split_config')->experiment_for($this->name);
             if ($exp_config) {
-                $alts = $this->load_alternatives_from_configuration();
-                $options['goals'] = (new GoalsCollection($this->name))->load_from_configuration();
-                $options['metadata'] = $this->load_metadata_from_configuration();
+                $alts                  = $this->load_alternatives_from_configuration();
+                $options['goals']      = (new GoalsCollection($this->name))->load_from_configuration();
+                $options['metadata']   = $this->load_metadata_from_configuration();
                 $options['resettable'] = $exp_config['resettable'];
-                $options['algorithm'] = $exp_config['algorithm'];
+                $options['algorithm']  = $exp_config['algorithm'];
             }
-        }else{
+        } else {
             /*alts = ['blue'=>1,'red'=>2] or ['blue','red']*/
-            $alts = $alts->map(function ($val,$key){
-                if (is_int($key)){/*['blue','red']*/
-                    return new Alternative($val,$this->name);
-                }else{/*['blue'=>1,'red'=>2]*/
-                    return new Alternative([$key=>$val],$this->name);
+            $alts = $alts->map(function ($val, $key) {
+                if (is_int($key)) {/*['blue','red']*/
+                    return new Alternative($val, $this->name);
+                } else {/*['blue'=>1,'red'=>2]*/
+                    return new Alternative([$key => $val], $this->name);
                 }
             });
         }
@@ -166,12 +169,12 @@ class Experiment implements \ArrayAccess {
             $this->save_metadata();
         } else {
             $existing_alternatives = $this->load_alternatives_from_redis();
-            $existing_goals = (new GoalsCollection($this->name))->load_from_redis();
-            $existing_metadata = $this->load_metadata_from_redis();
+            $existing_goals        = (new GoalsCollection($this->name))->load_from_redis();
+            $existing_metadata     = $this->load_metadata_from_redis();
             if (!(
-                $existing_alternatives == $this->alternatives->map(function (Alternative $a) { return $a->name; })->toArray() &&
-                $existing_goals == $this->goals->toArray() &&
-                $existing_metadata == $this->metadata->toArray())
+                $existing_alternatives == $this->alternatives->pluck('name')->toArray()
+                && $existing_goals == $this->goals->toArray()
+                && $existing_metadata == $this->metadata->toArray())
             ) {
                 /*cleanup old data*/
                 $this->reset();
@@ -187,7 +190,7 @@ class Experiment implements \ArrayAccess {
         }
 
         $this->redis->hset($this->experiment_config_key, 'resettable', $this->resettable);
-        $this->redis->hset($this->experiment_config_key, 'algorithm', $this->algorithm);
+        $this->redis->hset($this->experiment_config_key, 'algorithm', collect(explode('\\', get_class($this->algorithm())))->last());
     }
 
     /**
@@ -196,8 +199,10 @@ class Experiment implements \ArrayAccess {
      * @throws ExperimentNotFound
      */
     public function validate() {
-        if ($this->alternatives->isEmpty() && \App::make('split_config')->experiment_for($this->name) == null)
+        if ($this->alternatives->isEmpty() && \App::make('split_config')->experiment_for($this->name) === null){
+            require_once __DIR__.'/exceptions.php';
             throw new ExperimentNotFound("Experiment $this->name not found");
+        }
         $this->alternatives->each(function (Alternative $a) { $a->validate(); });
         $this->goals_collection()->validate();
     }
@@ -228,8 +233,8 @@ class Experiment implements \ArrayAccess {
      * @return SamplingAlgorithm
      */
     public function algorithm() {
-        if ($this->algorithm == null) {
-            $algorithm = \App::make('split_config')->algorithm;
+        if (is_null($this->algorithm)) {
+            $algorithm       = \App::make('split_config')->algorithm;
             $this->algorithm = new $algorithm();
         }
 
@@ -241,7 +246,7 @@ class Experiment implements \ArrayAccess {
      *
      * @param SamplingAlgorithm $algorithm
      */
-    public function set_algorithm($algorithm) {
+    public function set_algorithm(SamplingAlgorithm $algorithm) {
         $this->algorithm = $algorithm;
     }
 
@@ -293,7 +298,7 @@ class Experiment implements \ArrayAccess {
      * @return bool
      */
     public function has_winner() {
-        return $this->winner() != null;
+        return $this->winner() !== null;
     }
 
     /**
@@ -408,7 +413,7 @@ class Experiment implements \ArrayAccess {
      */
     public function key() {
         if ($this->version() > 0) {
-            return "$this->name:".$this->version();
+            return "$this->name:" . $this->version();
         } else {
             return $this->name;
         }
@@ -466,7 +471,7 @@ class Experiment implements \ArrayAccess {
         $this->redis->del($this->name);
         $this->goals_collection()->delete();
         $this->delete_metadata();
-        call_user_func(\App::make('split_config')->on_experiment_delete,$this);
+        call_user_func(\App::make('split_config')->on_experiment_delete, $this);
         $this->increment_version();
     }
 
@@ -520,7 +525,7 @@ class Experiment implements \ArrayAccess {
 
     /**
      * Do $beta_probability_simulations times simulations to find out which alternative is more likely to be the winner
-     * 
+     *
      * @param null|string $goal
      */
     public function estimate_winning_alternative($goal = null) {
@@ -538,7 +543,7 @@ class Experiment implements \ArrayAccess {
             $winning_alternative = $this->find_simulated_winner($simulated_cr_hash);
 
             # push the winning pair to the winning_alternatives array
-            $winning_alternatives->push($winning_alternative);/*Alternative*/
+            $winning_alternatives->push($winning_alternative);/*name of alternative*/
         }
 
         $winning_counts = $this->count_simulated_wins($winning_alternatives); /*name=>counts*/
@@ -552,28 +557,28 @@ class Experiment implements \ArrayAccess {
 
     /**
      * Save each alternative's winning probabilities to the redis
-     * 
+     *
      * @param null|string $goal
      */
     public function write_to_alternatives($goal = null) {
-        $this->alternatives->each(function (Alternative $alternative) use ($goal) {
+        foreach ($this->alternatives as $alternative) {/* @var Alternative $alternative*/
             $alternative->set_p_winner($this->alternative_probabilities[(string)$alternative], $goal);/*key cannot be object, use __string{name} instead*/
-        });
+        }
     }
 
     /**
      * Use each alternative's winning counts to find out the winning probability
-     * 
+     *
      * @param Collection $winning_counts
-     * @param int $number_of_simulations
+     * @param int        $number_of_simulations
      *
      * @return Collection [alt name => win prob]
      */
     public function calc_alternative_probabilities(Collection $winning_counts, $number_of_simulations) {
         $alternative_probabilities = collect([]);
-        $winning_counts->each(function ($wins, $alternative_name/*string*/) use ($alternative_probabilities, $number_of_simulations) {
+        foreach ($winning_counts as $alternative_name => $wins) {
             $alternative_probabilities[$alternative_name] = $wins / $number_of_simulations;
-        });
+        }
 
         return $alternative_probabilities;
     }
@@ -581,49 +586,47 @@ class Experiment implements \ArrayAccess {
 
     /**
      * Count each alternative's winning counts in the simulations
-     * 
-     * @param Collection $winning_alternatives 
+     *
+     * @param Collection $winning_alternatives name of the winner
      *
      * @return Collection [alt_name=>win_counts]
-     * 
+     *
      */
     public function count_simulated_wins($winning_alternatives) {
         # initialize a hash to keep track of winning alternative in simulations
         $winning_counts = collect([]);
-        $this->alternatives->each(function (Alternative $alternative) use ($winning_counts) {
+        foreach ($this->alternatives as $alternative) {
             $winning_counts[(string)$alternative] = 0;
-        });
-        # count number of times each alternative won, calculate probabilities, place in hash
-        $winning_alternatives->each(function (Alternative $alternative) use ($winning_counts) {
-            $winning_counts[(string)$alternative] += 1;
-        });
+        }
+        foreach ($winning_alternatives as $winner_name) {
+            $winning_counts[$winner_name] += 1;
+        }
 
         return $winning_counts;
     }
 
     /**
      * Find out the winner in the simulations according to winning counts
-     * 
+     *
      * @param Collection $simulated_cr_hash
      *
-     * @return Alternative
+     * @return string Name of the Alternative
      */
     public function find_simulated_winner($simulated_cr_hash) {
         # figure out which alternative had the highest simulated conversion rate
         $winning_pair = ['', 0.0];/*[name=>rate]*/
-        $simulated_cr_hash->each(function ($rate, $alternative_name) use ($winning_pair) {
+        foreach ($simulated_cr_hash as $alternative_name => $rate) {
             if ($rate > $winning_pair[1]) {
                 $winning_pair = [$alternative_name, $rate];
             }
-        });
-        $this->set_winner($winning_pair[0]);
-
-        return $this->winner();
+        }
+        $winner_name = $winning_pair[0];
+        return $winner_name;
     }
 
     /**
      * Do a simulation and guess the alternative's conversion rate
-     * 
+     *
      * @param Collection $beta_params [alpha, beta]
      *
      * @return Collection alt_name=>cv
@@ -632,40 +635,40 @@ class Experiment implements \ArrayAccess {
         $simulated_cr_hash = collect([]);
 
         # create a hash which has the conversion rate pulled from each alternative's beta distribution
-        $beta_params->each(function ($params, $alternative_name) use ($simulated_cr_hash) {
+        foreach ($beta_params as $alternative_name => $params) {
             list($alpha, $beta) = $params;
-            $simulated_conversion_rate = (new Beta($alpha, $beta))->rand();
+            $simulated_conversion_rate            = (new Beta($alpha, $beta))->rand();
             $simulated_cr_hash[$alternative_name] = $simulated_conversion_rate;
-        });
+        }
 
         return $simulated_cr_hash;
     }
 
     /**
      * Calculate the alternative's beta params, that is, alpha and beta
-     * 
+     *
      * @param null|string $goal
      *
      * @return Collection [alpha, beta]
      */
     public function calc_beta_params($goal = null) {
         $beta_params = collect([]);
-        $this->alternatives->each(function (Alternative $alternative) use ($beta_params, $goal) {
+        foreach ($this->alternatives as $alternative) {
             $conversions = $alternative->completed_count($goal);
-            $alpha = 1 + $conversions;
-            $beta = 1 + $alternative->participant_count() - $conversions;
+            $alpha       = 1 + $conversions;
+            $beta        = 1 + $alternative->participant_count() - $conversions;
 
             $params = [$alpha, $beta];
 
             $beta_params[(string)$alternative] = $params;
-        });
+        }
 
         return $beta_params;
     }
 
     /**
      * Save the calculate winner's time(days since epoch) to the redis
-     * 
+     *
      * @param int $time
      */
     public function set_calc_time($time) {
@@ -731,12 +734,12 @@ class Experiment implements \ArrayAccess {
             throw new \InvalidArgumentException("Experiment configuration is missing alternatives array");
         }
         if ($this->isAssoc($alts)) {/* case when [blue=>xxxx, red=> yyyy, green=>zzzz]]*/
-            return $alts->map(function ($alt_name, $weight){
-                return new Alternative(collect([$alt_name=>$weight]),$this->name);
+            return $alts->map(function ($alt_name, $weight) {
+                return new Alternative(collect([$alt_name => $weight]), $this->name);
             });
         } else {/* case when [blue, red, green]*/
-            return $alts->flatten()->map(function ($alt_name){
-                return new Alternative($alt_name,$this->name);
+            return $alts->flatten()->map(function ($alt_name) {
+                return new Alternative($alt_name, $this->name);
             });
         }
     }
@@ -769,6 +772,7 @@ class Experiment implements \ArrayAccess {
 
     /**
      * Whether a offset exists
+     *
      * @link  http://php.net/manual/en/arrayaccess.offsetexists.php
      *
      * @param mixed $offset <p>
@@ -789,6 +793,7 @@ class Experiment implements \ArrayAccess {
 
     /**
      * Offset to retrieve
+     *
      * @link  http://php.net/manual/en/arrayaccess.offsetget.php
      *
      * @param mixed $offset <p>
@@ -806,6 +811,7 @@ class Experiment implements \ArrayAccess {
 
     /**
      * Offset to set
+     *
      * @link  http://php.net/manual/en/arrayaccess.offsetset.php
      *
      * @param mixed $offset <p>
@@ -824,6 +830,7 @@ class Experiment implements \ArrayAccess {
 
     /**
      * Offset to unset
+     *
      * @link  http://php.net/manual/en/arrayaccess.offsetunset.php
      *
      * @param mixed $offset <p>
@@ -837,7 +844,7 @@ class Experiment implements \ArrayAccess {
         // TODO: Implement offsetUnset() method.
     }
 
-    public function complete() { 
+    public function complete() {
         /*fixme: add it if necessary*/
     }
 }

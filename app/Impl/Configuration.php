@@ -56,6 +56,8 @@ class Configuration {
     public $metrics;
     public $experiment_config;
 
+    public $version;
+
     /**
      * return the collection of the robots
      *
@@ -142,8 +144,10 @@ class Configuration {
      * @throws InvalidExperimentsFormatError
      */
     public function set_experiments($experiments) {
-        if (!$this->experiments instanceof Collection)
+        if (!$this->experiments instanceof Collection){
+            require_once __DIR__.'/exceptions.php';
             throw new InvalidExperimentsFormatError("Experiments must be a Hash");
+        }
         $this->experiments = $experiments;
     }
 
@@ -165,7 +169,7 @@ class Configuration {
      */
     public function experiment_for($name) {
         if ($this->normalized_experiments()) {
-            return Helper::value_for($this->normalized_experiments(),$name);
+            return Helper::value_for($this->normalized_experiments(), $name);
         }
     }
 
@@ -339,28 +343,31 @@ class Configuration {
         $this->on_experiment_delete = function ($experiment) { };
         $this->on_before_experiment_reset = function ($experiment) { };
         $this->on_before_experiment_delete = function ($experiment) { };
-        $this->on_trial_complete = function ($trial){};
-        $this->on_trial_choose = function ($trial){};
-        $this->on_trial = function ($trial){};
+        $this->on_trial_complete = function ($trial) { };
+        $this->on_trial_choose = function ($trial) { };
+        $this->on_trial = function ($trial) { };
         $this->db_failover_allow_parameter_override = Config::get('split.db_failover_allow_parameter_override');
         $this->allow_multiple_experiments = Config::get('split.allow_multiple_experiments');
         $this->enabled = Config::get('split.enabled');
-        $this->experiments = collect([]);/*load from json or yaml*/
-        
+        $this->experiments = collect([]);/*notice: load from json or yaml*/
+
         $adapters = Config::get('split.adapters');
         $adapter = Config::get('split.adapter');
-        $this->persistence = $adapters[$adapter];
-        
+        if (array_key_exists($adapter, $adapters)){
+            $this->persistence = $adapters[$adapter];
+        }
+
         $this->persistence_cookie_length = Config::get('split.cookie_expires');
-        
+
         $algorithms = Config::get('split.algorithms');
         $algorithm = Config::get('split.algorithm');
         $this->algorithm = $algorithms[$algorithm];
-        
+
         $this->beta_probability_simulations = Config::get('split.beta_probability_simulations');
+
+        $this->version = Config::get('split.version');
     }
 
-    
 
     public function escaped_bots() {
         return $this->bots()->map(function ($v, $k) {

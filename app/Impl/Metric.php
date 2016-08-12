@@ -85,7 +85,7 @@ class Metric {
     /**
      * @param $metric_name string
      *
-     * @return Collection
+     * @return Collection Of Experiment
      */
     public static function possible_experiments($metric_name){
         $experiments = collect([]);
