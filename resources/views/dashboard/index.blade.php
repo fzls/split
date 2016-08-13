@@ -11,16 +11,16 @@
         <input type="button" id="clear-filter" value="Clear filters"/>
 
         @foreach($experiments as $experiment)
-            @if(!$experiment->goals()->isEmpty())
+            @if($experiment->goals->isEmpty())
                 @include('dashboard._experiment',[
                     'goal'=>null,
                     'experiment'=>$experiment
                 ])
             @else
                 @include('dashboard._experiment_with_goal_header',[
-'locals'=>['experiment'=>$experiment]
+                    'experiment'=>$experiment
                 ])
-                @foreach($experiment->goals() as $goal)
+                @foreach($experiment->goals as $goal)
                     @include('dashboard._experiment',[
                         'goal'=>$goal,
                         'experiment'=>$experiment

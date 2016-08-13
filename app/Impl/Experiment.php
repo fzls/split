@@ -99,7 +99,8 @@ class Experiment implements \ArrayAccess {
         $this->alternatives = collect(Helper::value_for($options, 'alternatives'));
         $this->goals        = collect(Helper::value_for($options, 'goals'));
         $this->resettable   = Helper::value_for($options, 'resettable');
-        $this->algorithm    = Helper::value_for($options, 'algorithm');
+        $this->set_algorithm(Helper::value_for($options, 'algorithm'));
+//        $this->algorithm    = Helper::value_for($options, 'algorithm');
         $this->metadata     = collect(Helper::value_for($options, 'metadata'));
     }
 
@@ -172,8 +173,8 @@ class Experiment implements \ArrayAccess {
             $existing_goals        = (new GoalsCollection($this->name))->load_from_redis();
             $existing_metadata     = $this->load_metadata_from_redis();
             if (!(
-                $existing_alternatives == $this->alternatives->pluck('name')->toArray()
-                && $existing_goals == $this->goals->toArray()
+                $existing_alternatives == $this->alternatives
+                && $existing_goals == $this->goals
                 && $existing_metadata == $this->metadata->toArray())
             ) {
                 /*cleanup old data*/
@@ -244,9 +245,19 @@ class Experiment implements \ArrayAccess {
     /**
      * Set algorithm for the experiment, should implement Interface SamplingAlgorithm
      *
-     * @param SamplingAlgorithm $algorithm
+     * @param SamplingAlgorithm|string $algorithm
+     *
+     * @throws \InvalidArgumentException
      */
-    public function set_algorithm(SamplingAlgorithm $algorithm) {
+    public function set_algorithm($algorithm) {
+        if(is_string($algorithm)){
+            $algorithms = \Config::get('split.algorithms');
+            if (array_key_exists($algorithm,$algorithms)){
+                $algorithm = new $algorithms[$algorithm]();
+            }else{
+                throw new \InvalidArgumentException('No such algorithm exists');
+            }
+        }
         $this->algorithm = $algorithm;
     }
 
@@ -491,7 +502,7 @@ class Experiment implements \ArrayAccess {
         $options = collect(
             [
                 'resettable'   => $exp_config['resettable'],
-                'algorithm'    => $exp_config['algorithm'],/*fixme*/
+                'algorithm'    => $exp_config['algorithm'],
                 'alternatives' => $this->load_alternatives_from_redis(),
                 'goals'        => (new GoalsCollection($this->name))->load_from_redis(),
                 'metadata'     => $this->load_metadata_from_redis(),
@@ -500,6 +511,7 @@ class Experiment implements \ArrayAccess {
 
         $this->set_alternatives_and_options($options);
     }
+
 
     /**
      * Calculate the winning alternative
@@ -752,7 +764,9 @@ class Experiment implements \ArrayAccess {
             $alts->reverse()->each(function ($a) { $this->redis->lpush($this->name, $a); });
         }
 
-        return $this->redis->lrange($this->name, 0, -1);
+        return collect($this->redis->lrange($this->name, 0, -1))->map(function ($alt_name){
+            return new Alternative($alt_name,$this->name);
+        });
     }
 
     protected function save_metadata() {

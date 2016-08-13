@@ -63,7 +63,7 @@ class Trial {
         if ($alternative instanceof Alternative) {
             $this->alternative = $alternative;
         } else {
-            $this->alternative = $this->experiment->alternatives->first(function ($a) use ($alternative) {
+            $this->alternative = $this->experiment->alternatives->first(function ($key,$a) use ($alternative) {
                 return $a->name == $alternative;
             });
         }

@@ -9,10 +9,10 @@
 return [
     /*TODO: move all the config into Configuration*/
     'algorithms' => [
-        'weighted' => Split\Impl\Algorithms\WeightedSample::class,
-        'whiplash' => Split\Impl\Algorithms\Whiplash::class,
+        'WeightedSample' => Split\Impl\Algorithms\WeightedSample::class,
+        'Whiplash' => Split\Impl\Algorithms\Whiplash::class,
     ],
-    'algorithm'  => env('SPLIT_ALGORITHM', 'weighted'),
+    'algorithm'  => env('SPLIT_ALGORITHM', 'WeightedSample'),
     /*
     |--------------------------------------------------------------------------
     | Available User Store
@@ -63,7 +63,8 @@ return [
     'db_failover_allow_parameter_override' => env('SPLIT_DB_FAILOVER_ALLOW_PARAMETER_OVERRIDE', false),
     'allow_multiple_experiments'           => env('SPLIT_ALLOW_MULTIPLE_EXPERIMENTS', false),
     'enabled'                              => env('SPLIT_ENABLED', true),
-    'beta_probability_simulations'         => env('SPLIT_BETA_PROBABILITY_SIMULATIONS', 10000),
+//    'beta_probability_simulations'         => env('SPLIT_BETA_PROBABILITY_SIMULATIONS', 10000),
+    'beta_probability_simulations'         => env('SPLIT_BETA_PROBABILITY_SIMULATIONS', 100),
     'version'                              => collect([
                                                           env('SPLIT_VERSION_MAJOR'),
                                                           env('SPLIT_VERSION_MINOR'),

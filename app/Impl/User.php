@@ -22,6 +22,7 @@ class User implements ArrayLike {
      */
     public function __construct() {
         /*fixme: make the same*/
+        require_once __DIR__.'/Persistence/adapter.php';
         $this->user = \Split\Impl\Persistence\adapter();
     }
 

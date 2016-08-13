@@ -73,13 +73,13 @@ class ExperimentCatalog {
     /**
      * Find a experiment and initialize it
      *
-     * @param Collection             $metric_descriptor
+     * @param Collection|string             $metric_descriptor
      * @param null|string|Collection $control
      * @param null|Collection        $alternatives
      *
      * @return Experiment
      */
-    public function find_or_initialize(Collection $metric_descriptor, $control = null, $alternatives = null) {
+    public function find_or_initialize($metric_descriptor, $control = null, $alternatives = null) {
         if (!$alternatives instanceof Collection) {
             $alternatives = collect(func_get_args())->splice(2);
         }

@@ -14,6 +14,7 @@
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Split\Impl\Alternative;
+use Split\Impl\Helper;
 use Split\Impl\Metric;
 
 Route::auth();
@@ -37,24 +38,25 @@ Route::group(['as' => 'dashboard.'], function () {
 });
 
 Route::get('/test', function (Request $request) {
-    $t = new Carbon();
-    var_dump($t->toAtomString());
-    var_dump($t->toCookieString());
-    var_dump($t->toDateString());
-    var_dump($t->toDateTimeString());
-    var_dump($t->toDayDateTimeString());
-    var_dump($t->toFormattedDateString());
-    var_dump(new Carbon());
-    $a = $b = $c = 1;
-    var_dump(compact('a', 'b', 'c'));
-    var_dump(Config::get('app.env'));
-    var_dump($request['experiment']);
-    var_dump(round(3.56782,2));
-    var_dump(url('reset.css'));
-    var_dump(url('style.css'));
-    var_dump(action('ApiController@ab_test'));
-    var_dump(asset('img/photo.jpg'));
-    var_dump(secure_asset('img/photo.jpg'));
-    var_dump(url('img/photo.jpg'));
+    var_dump(Helper::ab_test('test_ab',['success','fail','unkown']));
+//    $t = new Carbon();
+//    var_dump($t->toAtomString());
+//    var_dump($t->toCookieString());
+//    var_dump($t->toDateString());
+//    var_dump($t->toDateTimeString());
+//    var_dump($t->toDayDateTimeString());
+//    var_dump($t->toFormattedDateString());
+//    var_dump(new Carbon());
+//    $a = $b = $c = 1;
+//    var_dump(compact('a', 'b', 'c'));
+//    var_dump(Config::get('app.env'));
+//    var_dump($request['experiment']);
+//    var_dump(round(3.56782,2));
+//    var_dump(url('reset.css'));
+//    var_dump(url('style.css'));
+//    var_dump(action('ApiController@ab_test'));
+//    var_dump(asset('img/photo.jpg'));
+//    var_dump(secure_asset('img/photo.jpg'));
+//    var_dump(url('img/photo.jpg'));
 
 });

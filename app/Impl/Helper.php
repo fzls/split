@@ -31,22 +31,24 @@ class Helper {
      * @throws \Exception
      */
     public static function ab_test($metric_descriptor, $control = null, $alternatives = null) {
-        $metric_descriptor = collect($metric_descriptor);
-        $control           = collect($control);
-        $alternatives      = collect(func_get_args())->splice(2);
+        if (is_array($metric_descriptor)) {
+            $metric_descriptor = collect($metric_descriptor);
+        }
+        $control = collect($control);
+        $alternatives = collect(func_get_args())->splice(2);
 
         try {
             $experiment = \App::make('split_catalog')->find_or_initialize($metric_descriptor, $control, $alternatives);
             if (\App::make('split_config')->enabled) {
                 $experiment->save();
-                $trial       = new Trial([
-                                             'user'       => self::ab_user(),
-                                             'experiment' => $experiment,
-                                             'override'   => self::override_alternative($experiment->name),
-                                             'exclude'    => self::exclude_visitor(),
-                                             'disabled'   => self::split_generically_disabled(),
-                                         ]);
-                $alt         = $trial->choose(/*self*/);
+                $trial = new Trial([
+                                       'user'       => self::ab_user(),
+                                       'experiment' => $experiment,
+                                       'override'   => self::override_alternative($experiment->name),
+                                       'exclude'    => self::exclude_visitor(),
+                                       'disabled'   => self::split_generically_disabled(),
+                                   ]);
+                $alt = $trial->choose(/*self*/);
                 $alternative = $alt ? $alt->name : null;
             } else {
                 $alternative = self::control_variable($experiment->control());
@@ -97,11 +99,11 @@ class Helper {
             return true;
         } else {
             $alternative_name = self::ab_user()[$experiment->key()];
-            $trial            = new Trial([
-                                              'user'        => self::ab_user(),
-                                              'experiment'  => $experiment,
-                                              'alternative' => $alternative_name,
-                                          ]);
+            $trial = new Trial([
+                                   'user'        => self::ab_user(),
+                                   'experiment'  => $experiment,
+                                   'alternative' => $alternative_name,
+                               ]);
             $trial->complete($options['goals']/*, self*/);
 
             if ($should_reset) {
@@ -140,8 +142,8 @@ class Helper {
 
     public static function override_alternative($experiment_name) {
         return !\App::runningInConsole()
-               && \Request::has('OVERRIDE_PARAM_NAME')
-               && collect(\Request::input('OVERRIDE_PARAM_NAME'))->has($experiment_name);
+        && \Request::has('OVERRIDE_PARAM_NAME')
+        && collect(\Request::input('OVERRIDE_PARAM_NAME'))->has($experiment_name);
     }
 
     public static function split_generically_disabled() {
@@ -179,10 +181,10 @@ class Helper {
     public static function normalize_metric($metric_descriptor) {
         if ($metric_descriptor instanceof Collection) {
             $experiment_name = $metric_descriptor->keys()->first();
-            $goals           = collect($metric_descriptor->values()->first());
+            $goals = collect($metric_descriptor->values()->first());
         } else {
             $experiment_name = $metric_descriptor;
-            $goals           = collect([]);
+            $goals = collect([]);
         }
 
         return [$experiment_name, $goals];

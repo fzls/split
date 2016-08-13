@@ -71,6 +71,9 @@ class Metric {
         return $metric;
     }
 
+    /**
+     * @return Collection
+     */
     public static function all(){
         $redis_metrics = collect(\App::make('split_redis')->hgetall('metrics'))->map(function ($value,$key){
             return self::find($key);
