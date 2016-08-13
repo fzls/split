@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Support\ServiceProvider;
 use Split\Impl\Configuration;
 use Split\Impl\ExperimentCatalog;
+use Split\Impl\InvalidPersistenceAdapterError;
 use Split\Impl\User;
 
 class SplitServiceProvider extends ServiceProvider {
@@ -24,11 +25,6 @@ class SplitServiceProvider extends ServiceProvider {
      * @return void
      */
     public function register() {
-        /*FIXme*/
-        $this->app->singleton('test', function ($app) {
-            return new \A_chen(Carbon::now());
-        });
-
         $this->app->singleton('split_redis', function ($app) {
             return $this->app->make('redis')->connection();
         });
@@ -47,6 +43,11 @@ class SplitServiceProvider extends ServiceProvider {
 
         $this->app->singleton('split_user', function ($app) {
             return new User();
+        });
+
+        $this->app->singleton('split_adapter', function ($app) {
+            require_once app_path('Impl/Persistence/adapter.php');
+            return \Split\Impl\Persistence\adapter();
         });
     }
 }

@@ -15,10 +15,21 @@ use Config;
 
 use Split\Contracts\Persistence\ArrayLike;
 
+/**
+ * Class SessionAdapter
+ * @package Split\Impl\Persistence
+ */
 class SessionAdapter implements ArrayLike {
+    /**
+     * Namespce of the session for saving user data
+     *
+     * @var string
+     */
     protected $session_namespace;
 
     /**
+     * The collection resides on the Session to store the user data during the session
+     *
      * @var Collection
      */
     protected $session;
@@ -27,8 +38,9 @@ class SessionAdapter implements ArrayLike {
      * SessionAdapter constructor.
      */
     public function __construct() {
-        $this->session_namespace = Config::get('split.session_namespace');
-        
+        $this->session_namespace = \App::make("split_config")->session_namespace;
+
+        /*if Collection not exists in Session, init it*/
         if (!Session::has($this->session_namespace)) {
             Session::put($this->session_namespace, collect([]));
         }

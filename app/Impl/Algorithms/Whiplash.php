@@ -30,8 +30,8 @@ class Whiplash implements SamplingAlgorithm {
      * @return float|void
      */
     private function arm_guess($participants, $completions) {
-        $a = max($participants, 0);
-        $b = max($completions, 0);
+        $a    = max($participants, 0);
+        $b    = max($completions, 0);
         $beta = new Beta($a + self::FAIRNESS_CONSTANT, $b + self::FAIRNESS_CONSTANT);
 
         return $beta->rand();

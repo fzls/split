@@ -12,42 +12,105 @@ namespace Split\Impl;
 use Carbon\Carbon;
 use gburtini\Distributions\Beta;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Redis;
 
 use Split\Contracts\Algorithm\SamplingAlgorithm;
 
+/**
+ * Class Experiment
+ * @package Split\Impl
+ */
 class Experiment implements \ArrayAccess {
-    public    $name;
-    protected $algorithm;
-    public    $resettable;
     /**
+     * The name of the experiment
+     *
+     * @var string
+     */
+    public $name;
+
+    /**
+     * The Algorithm that the experiment use to choose alternative for user
+     *
+     * @var SamplingAlgorithm
+     */
+    protected $algorithm;
+
+    /**
+     * If true, when a user completes a test their session is reset so that they may start the test again in the future.
+     *
+     * @var bool
+     */
+    public $resettable;
+
+    /**
+     * The goals collection of the experiment.
+     *
      * @var Collection
      */
     public $goals;
+
     /**
+     * The alternatives of the user, and the first of which is considered as the Control group.
+     *
      * @var Collection of Alternative
      */
     public $alternatives;/*fixme*/
+
     /**
+     * Each alternative's winning probability.
+     *
      * @var Collection
      */
     public $alternative_probabilities;
+
     /**
+     * Set this when you need more than just the name of the alternative as the result.
+     *
+     * eg:
+     * my_first_experiment: {
+     *     alternatives: ["a", "b"],
+     *     metadata: {
+     *       "a" => {"text" => "Have a fantastic day"},
+     *       "b" => {"text" => "Don't get hit by a bus"}
+     *     }
+     *   }
+     *
      * @var Collection
      */
     public $metadata;
 
     const DEFAULT_OPTIONS = ['resettable' => true];
+
+    /**
+     * The version of the experiment, it will increment by one after experiment's reset.
+     *
+     * @var int
+     */
     protected $version;
+
+    /**
+     * The key of the experiment's config data in the redis.
+     *
+     * @var string
+     */
     protected $experiment_config_key;
 
+    /**
+     * Redis client
+     */
     protected $redis;
+
+    /**
+     * The goals collection of the experiment.
+     *
+     * @var GoalsCollection
+     */
     protected $goals_collection;
 
     /**
      * Experiment constructor.
      *
-     * @param string $name
+     * @param string           $name
+     * @param array|Collection $options
      */
     public function __construct($name, $options = []) {
         $options = collect($options);
@@ -55,32 +118,34 @@ class Experiment implements \ArrayAccess {
 
         $this->name = $name;
 
-        /*try to get alternative from options*/
-        $this->alternatives = $this->extract_alternatives_from_options($options);
+        /*try to get alternative(array) from options*/
+        $alternatives = $this->extract_alternatives_from_options($options);
 
         /*if not given, then try to get from configuration*/
-        if ($this->alternatives->isEmpty() && ($exp_config = \App::make('split_config')->experiment_for($name))) {
+        if ($alternatives->isEmpty() && ($exp_config = \App::make('split_config')->experiment_for($name))) {
             $options = collect(
                 [
-                    'alternatives' => $this->load_alternatives_from_configuration(),
+                    'alternati-ves' => $this->load_alternatives_from_configuration(),
                     'goals'        => (new GoalsCollection($name))->load_from_configuration(),
                     'metadata'     => $this->load_metadata_from_configuration(),
-                    'resettable'   => $exp_config['resettable'],
-                    'algorithm'    => $exp_config['algorithm'],
+                    'resettable'   => Helper::value_for($exp_config, 'resettable'),
+                    'algorithm'    => Helper::value_for($exp_config, 'algorithm'),
                 ]
             );
+            /*NOTE: check if need to load from redis when configuration is also failed*/
         } else {
-            $options['alternatives'] = $this->alternatives;
+            /*otherwise, update the options*/
+            $options['alternatives'] = $alternatives;
         }
 
         $this->set_alternatives_and_options($options);
-        $this->experiment_config_key = "experiment_configurations/$this->name";
 
+        $this->experiment_config_key = "experiment_configurations:$this->name";
         $this->redis = \App::make('split_redis');
     }
 
     /**
-     * Helper for formatting key
+     * Helper for formatting experiment finished key
      *
      * @param null|string $key
      *
@@ -93,63 +158,60 @@ class Experiment implements \ArrayAccess {
     }
 
     /**
+     * Set the alternatives and other settings according to the options
+     *
      * @param Collection $options
      */
     public function set_alternatives_and_options($options) {
-        $this->alternatives = collect(Helper::value_for($options, 'alternatives'));
-        $this->goals        = collect(Helper::value_for($options, 'goals'));
-        $this->resettable   = Helper::value_for($options, 'resettable');
+        $this->set_alternatives(Helper::value_for($options, 'alternatives'));
         $this->set_algorithm(Helper::value_for($options, 'algorithm'));
-//        $this->algorithm    = Helper::value_for($options, 'algorithm');
-        $this->metadata     = collect(Helper::value_for($options, 'metadata'));
+        $this->goals      = collect(Helper::value_for($options, 'goals'));
+        $this->resettable = Helper::value_for($options, 'resettable');
+        $this->metadata   = collect(Helper::value_for($options, 'metadata'));
     }
 
     /**
+     * Get the alternative array from the options.
+     *
+     * PS: not in Alternative instance, but row data.
+     * collect([[a=>1],[b=>2],c,d])
+     *
      * @param Collection $options
      *
-     * @return Collection
+     * @return Collection of alternative's raw data
      */
     public function extract_alternatives_from_options($options) {
         $alts = collect(Helper::value_for($options, 'alternatives'));
 
-        /*alts = [['a1'=>1,'a2'=>2]]*/
+        /*alts = [['a1'=>1,'a2'=>2,'a3',...]]*/
         if ($alts->count() == 1) {
             if (is_array($alts[0])) {
-                $alts = collect($alts[0])->map(function ($item, $key) {
-                    return new Alternative(collect([$key => $item]), $this->name);
-                });
+                $alts = $alts->collapse();
             }
         }
 
-        /*alts =[], need to load form outside*/
-        if ($alts->isEmpty()) {
-            /*fixme: this[124:133&145:149] seems to be in the wrong place, which is the same as @line 62:71, delete it later*/
-            $exp_config = \App::make('split_config')->experiment_for($this->name);
-            if ($exp_config) {
-                $alts                  = $this->load_alternatives_from_configuration();
-                $options['goals']      = (new GoalsCollection($this->name))->load_from_configuration();
-                $options['metadata']   = $this->load_metadata_from_configuration();
-                $options['resettable'] = $exp_config['resettable'];
-                $options['algorithm']  = $exp_config['algorithm'];
+        return $this->normalize_raw_alternative($alts);
+    }
+
+    /**
+     * Input :  ['blue'=>1,'red'=>2, 'green', 'blue']
+     * Output:  [['blue'=>1],['red'=>2], 'green', 'blue']
+     *
+     * @param Collection $alts
+     *
+     * @return Collection
+     */
+    public function normalize_raw_alternative($alts) {
+        /*alts = ['blue'=>1,'red'=>2] or ['blue','red']*/
+        $normalized_alternatives = collect([]);
+        foreach ($alts as $key=>$val){
+        if (is_int($key)) {/*['blue','red']*/
+                $normalized_alternatives->push($val);
+            } else {/*['blue'=>1,'red'=>2]*/
+                $normalized_alternatives->push([$key => $val]);
             }
-        } else {
-            /*alts = ['blue'=>1,'red'=>2] or ['blue','red']*/
-            $alts = $alts->map(function ($val, $key) {
-                if (is_int($key)) {/*['blue','red']*/
-                    return new Alternative($val, $this->name);
-                } else {/*['blue'=>1,'red'=>2]*/
-                    return new Alternative([$key => $val], $this->name);
-                }
-            });
-        }
-
-        $options['alternatives'] = $alts;
-        $this->set_alternatives_and_options($options);
-
-        # calculate probability that each alternative is the winner
-        $this->alternative_probabilities = collect([]);
-
-        return $alts;
+    }
+        return $normalized_alternatives;
     }
 
     /**
@@ -172,21 +234,23 @@ class Experiment implements \ArrayAccess {
             $existing_alternatives = $this->load_alternatives_from_redis();
             $existing_goals        = (new GoalsCollection($this->name))->load_from_redis();
             $existing_metadata     = $this->load_metadata_from_redis();
+            /*check if the experiment's essential config has changed*/
             if (!(
                 $existing_alternatives == $this->alternatives
                 && $existing_goals == $this->goals
-                && $existing_metadata == $this->metadata->toArray())
+                && $existing_metadata == $this->metadata->toArray())/*note: cheeck if this always fail*/
             ) {
-                /*cleanup old data*/
+                /*if so, cleanup old data*/
                 $this->reset();
                 $this->alternatives->each(function (Alternative $a) { $a->delete(); });
                 $this->goals_collection()->delete();
                 $this->delete_metadata();
                 $this->redis->del($this->name);
-                /*save new data*/
-                $this->alternatives->reverse()->each(function (Alternative $a) { $this->redis->lpush($this->name, $a->name); });
+                /*and then save new data*/
+                $this->alternatives->each(function (Alternative $a) { $a->save(); });
                 $this->goals_collection()->save();
                 $this->save_metadata();
+                $this->alternatives->reverse()->each(function (Alternative $a) { $this->redis->lpush($this->name, $a->name); });
             }
         }
 
@@ -200,8 +264,8 @@ class Experiment implements \ArrayAccess {
      * @throws ExperimentNotFound
      */
     public function validate() {
-        if ($this->alternatives->isEmpty() && \App::make('split_config')->experiment_for($this->name) === null){
-            require_once __DIR__.'/exceptions.php';
+        if ($this->alternatives->isEmpty() && \App::make('split_config')->experiment_for($this->name) === null) {
+            require_once app_path('Impl/exceptions.php');
             throw new ExperimentNotFound("Experiment $this->name not found");
         }
         $this->alternatives->each(function (Alternative $a) { $a->validate(); });
@@ -250,11 +314,11 @@ class Experiment implements \ArrayAccess {
      * @throws \InvalidArgumentException
      */
     public function set_algorithm($algorithm) {
-        if(is_string($algorithm)){
-            $algorithms = \Config::get('split.algorithms');
-            if (array_key_exists($algorithm,$algorithms)){
+        if (is_string($algorithm)) {
+            $algorithms = \App::make('split_config')->available_algorithms;
+            if (array_key_exists($algorithm, $algorithms)) {
                 $algorithm = new $algorithms[$algorithm]();
-            }else{
+            } else {
                 throw new \InvalidArgumentException('No such algorithm exists');
             }
         }
@@ -262,13 +326,13 @@ class Experiment implements \ArrayAccess {
     }
 
     /**
-     * Set resettable
+     * Set resettable property
      *
      * @param string|bool $resettable
      */
     public function set_resettable($resettable) {
         if (is_string($resettable)) {
-            $this->resettable = $resettable == 'true';
+            $this->resettable = $resettable === 'true';
         } else {
             $this->resettable = $resettable;
         }
@@ -285,6 +349,7 @@ class Experiment implements \ArrayAccess {
             if ($alternative instanceof Alternative) {
                 return $alternative;
             } else {
+                /*'blue' or ['blue'=>23]*/
                 return new Alternative($alternative, $this->name);
             }
         });
@@ -349,7 +414,7 @@ class Experiment implements \ArrayAccess {
     }
 
     /**
-     * Start the experiment, namely set the key in the redis
+     * Start the experiment, namely set the start time key in the redis
      */
     public function start() {
         $this->redis->hset('experiment_start_times', $this->name, Carbon::now()->timestamp);
@@ -403,8 +468,8 @@ class Experiment implements \ArrayAccess {
      * @return int
      */
     public function version() {
-        if (!$this->version) {
-            $this->version = (int)$this->redis->get("$this->name:version");/*fixme : put this and similar into constructor*/
+        if (is_null($this->version)) {
+            $this->version = (int)$this->redis->get("$this->name:version");
         }
 
         return $this->version;
@@ -462,17 +527,20 @@ class Experiment implements \ArrayAccess {
      */
     public function reset() {
         call_user_func(\App::make('split_config')->on_before_experiment_reset, $this);
+
         $this->alternatives->each(function (Alternative $a) { $a->reset(); });
         $this->reset_winner();
-        call_user_func(\App::make('split_config')->on_experiment_reset, $this);
         $this->increment_version();
+
+        call_user_func(\App::make('split_config')->on_experiment_reset, $this);
     }
 
     /**
-     * Delete the experiment
+     * Delete the experiment in the redis
      */
     public function delete() {
         call_user_func(\App::make('split_config')->on_before_experiment_delete, $this);
+
         if (\App::make('split_config')->start_manually) {
             $this->redis->hdel('experiment_start_times', $this->name);
         }
@@ -482,8 +550,9 @@ class Experiment implements \ArrayAccess {
         $this->redis->del($this->name);
         $this->goals_collection()->delete();
         $this->delete_metadata();
-        call_user_func(\App::make('split_config')->on_experiment_delete, $this);
         $this->increment_version();
+
+        call_user_func(\App::make('split_config')->on_experiment_delete, $this);
     }
 
     /**
@@ -494,7 +563,7 @@ class Experiment implements \ArrayAccess {
     }
 
     /**
-     * Load experiment from redis
+     * Load experiment data from redis
      */
     public function load_from_redis() {
         $exp_config = $this->redis->hgetall($this->experiment_config_key);
@@ -573,7 +642,8 @@ class Experiment implements \ArrayAccess {
      * @param null|string $goal
      */
     public function write_to_alternatives($goal = null) {
-        foreach ($this->alternatives as $alternative) {/* @var Alternative $alternative*/
+        foreach ($this->alternatives as $alternative) {
+            /* @var Alternative $alternative */
             $alternative->set_p_winner($this->alternative_probabilities[(string)$alternative], $goal);/*key cannot be object, use __string{name} instead*/
         }
     }
@@ -633,6 +703,7 @@ class Experiment implements \ArrayAccess {
             }
         }
         $winner_name = $winning_pair[0];
+
         return $winner_name;
     }
 
@@ -666,6 +737,7 @@ class Experiment implements \ArrayAccess {
     public function calc_beta_params($goal = null) {
         $beta_params = collect([]);
         foreach ($this->alternatives as $alternative) {
+            /* @var Alternative $alternative*/
             $conversions = $alternative->completed_count($goal);
             $alpha       = 1 + $conversions;
             $beta        = 1 + $alternative->participant_count() - $conversions;
@@ -712,10 +784,26 @@ class Experiment implements \ArrayAccess {
 
     /* protected functions*/
 
+    /**
+     * data format: [
+     *      'alt_1' => [ 'text' => 'this is a test', ....],
+     *      'alt 2' => [ 'text' => 'THIS IS A TEST', ....],
+     *      ......
+     * ]
+     */
     protected function load_metadata_from_configuration() {
         $this->metadata = \App::make('split_config')->experiment_for($this->name)['metadata'];
     }
 
+    /**
+     * data format: [
+     *      'alt_1' => [ 'text' => 'this is a test', ....],
+     *      'alt 2' => [ 'text' => 'THIS IS A TEST', ....],
+     *      ......
+     * ]
+     *
+     * @return array
+     */
     protected function load_metadata_from_redis() {
         $meta = $this->redis->get($this->metadata_key());
         if ($meta) {
@@ -724,38 +812,24 @@ class Experiment implements \ArrayAccess {
     }
 
     /**
-     * Check if a collection is associate or sequenced
+     * Get the experiment's alternatives data from configuration in raw array, not Alternative instance.
      *
-     * @link http://stackoverflow.com/a/173479
-     *
-     * @param $collection Collection
-     *
-     * @return bool
+     * @return Collection of alternative's raw data
      */
-    protected function isAssoc($collection) {
-        return $collection->keys()->toArray() !== range(0, $collection->count() - 1);
+    protected function load_alternatives_from_configuration() {
+        $alts = collect(Helper::value_for(\App::make('split_config')->experiment_for($this->name), 'alternatives'));
+        if ($alts->isEmpty()) {
+            throw new \InvalidArgumentException("Experiment configuration is missing alternatives array");
+        }
+
+        return $this->normalize_raw_alternative($alts);
     }
 
     /**
-     * @return Collection of Alternative
+     * Used for check if need to rewrite alternatives to the redis
+     *
+     * @return Collection
      */
-    protected function load_alternatives_from_configuration() {
-        $alts = \App::make('split_config')->experiment_for($this->name)['alternatives'];
-        /* @var $alts Collection */
-        if (!$alts) {
-            throw new \InvalidArgumentException("Experiment configuration is missing alternatives array");
-        }
-        if ($this->isAssoc($alts)) {/* case when [blue=>xxxx, red=> yyyy, green=>zzzz]]*/
-            return $alts->map(function ($alt_name, $weight) {
-                return new Alternative(collect([$alt_name => $weight]), $this->name);
-            });
-        } else {/* case when [blue, red, green]*/
-            return $alts->flatten()->map(function ($alt_name) {
-                return new Alternative($alt_name, $this->name);
-            });
-        }
-    }
-
     protected function load_alternatives_from_redis() {
         $type = $this->redis->type($this->name);
         if ($type == 'set') {
@@ -764,11 +838,20 @@ class Experiment implements \ArrayAccess {
             $alts->reverse()->each(function ($a) { $this->redis->lpush($this->name, $a); });
         }
 
-        return collect($this->redis->lrange($this->name, 0, -1))->map(function ($alt_name){
-            return new Alternative($alt_name,$this->name);
+        return collect($this->redis->lrange($this->name, 0, -1))->map(function ($alt_name) {
+            return new Alternative($alt_name, $this->name);
         });
     }
 
+    /**
+     * Save the metadata to the redis.
+     *
+     * data format: [
+     *      'alt_1' => [ 'text' => 'this is a test', ....],
+     *      'alt 2' => [ 'text' => 'THIS IS A TEST', ....],
+     *      ......
+     * ]
+     */
     protected function save_metadata() {
         if ($this->metadata) {
             $this->redis->set($this->metadata_key(), json_encode($this->metadata));
@@ -777,9 +860,15 @@ class Experiment implements \ArrayAccess {
 
     /* private */
 
+    /**
+     * Get the goals collection
+     *
+     * @return GoalsCollection
+     */
     private function goals_collection() {
-        if (is_null($this->goals_collection))
+        if (is_null($this->goals_collection)){
             $this->goals_collection = new GoalsCollection($this->name, $this->goals);
+        }
 
         return $this->goals_collection;
     }
@@ -859,6 +948,6 @@ class Experiment implements \ArrayAccess {
     }
 
     public function complete() {
-        /*fixme: add it if necessary*/
+        /*fixme: add it if necessary, maybe used in Stop/End experiment*/
     }
 }

@@ -7,27 +7,45 @@
  */
 
 namespace Split\Impl;
+use Illuminate\Support\Collection;
 
+/**
+ * Class GoalsCollection
+ * @package Split\Impl
+ */
 class GoalsCollection {
+    /**
+     * The name of the experiment that the goals belongs to
+     *
+     * @var string
+     */
     protected $experiment_name;
+
     /**
      * @var \Illuminate\Support\Collection
      */
     protected $goals;
-    protected $redis;
+
+    /**
+     * Key used in redis
+     *
+     * @var string
+     */
     protected $goals_key;
+
+    protected $redis;
 
     /**
      * GoalsCollection constructor.
      *
-     * @param  $experiment_name
-     * @param  $goals
+     * @param  string                $experiment_name
+     * @param  null|array|Collection $goals
      */
     public function __construct($experiment_name, $goals = null) {
         $this->experiment_name = $experiment_name;
         $this->goals           = collect($goals);
+        $this->goals_key       = "$this->experiment_name:goals";
         $this->redis           = \App::make('split_redis');
-        $this->goals_key       = $this->experiment_name . ":goals";
     }
 
 

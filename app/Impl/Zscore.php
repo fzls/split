@@ -9,16 +9,31 @@
 namespace Split\Impl;
 
 
+/**
+ * Class Zscore
+ * @package Split\Impl
+ */
 class Zscore {
+    /**
+     * Calculate the z-score
+     *
+     * p_1 = Pa = proportion of users who converted within the experiment split (conversion rate)
+     * p_2 = Pc = proportion of users who converted within the control split (conversion rate)
+     * n_1 = Na = the number of impressions within the experiment split
+     * n_2 = Nc = the number of impressions within the control split
+     * s_1 = SEa = standard error of p_1, the estiamte of the mean
+     * s_2 = SEc = standard error of p_2, the estimate of the control
+     * s_p = SEp = standard error of p_1 - p_2, assuming a pooled variance
+     * s_unp = SEunp = standard error of p_1 - p_2, assuming unpooled variance
+     *
+     * @param int $p1
+     * @param int $n1
+     * @param int $p2
+     * @param int $n2
+     *
+     * @return float|string
+     */
     static public function calculate($p1, $n1, $p2, $n2) {
-        # p_1 = Pa = proportion of users who converted within the experiment split (conversion rate)
-        # p_2 = Pc = proportion of users who converted within the control split (conversion rate)
-        # n_1 = Na = the number of impressions within the experiment split
-        # n_2 = Nc = the number of impressions within the control split
-        # s_1 = SEa = standard error of p_1, the estiamte of the mean
-        # s_2 = SEc = standard error of p_2, the estimate of the control
-        # s_p = SEp = standard error of p_1 - p_2, assuming a pooled variance
-        # s_unp = SEunp = standard error of p_1 - p_2, assuming unpooled variance
         $p_1 = floatval($p1);
         $p_2 = floatval($p2);
 
@@ -56,7 +71,15 @@ class Zscore {
 
     }
 
+    /**
+     * A helper func to get the confidence level of the z-score
+     *
+     * @param string|float $z_score
+     *
+     * @return string The confidence level
+     */
     static public function confidence_level($z_score) {
+        /*when z_score is N/A*/
         if (is_string($z_score)) {
             return $z_score;
         }

@@ -15,10 +15,24 @@ use Config;
 
 use Split\Contracts\Persistence\ArrayLike;
 
+/**
+ * Depends on user is logged in or not, use different adapter, by default we use cookie
+ * for logged out user, and redis for logged in user
+ *
+ * Class DualAdapter
+ * @package Split\Impl\Persistence
+ */
 class DualAdapter implements ArrayLike {
+    /**
+     * User's logged in state
+     *
+     * @var bool
+     */
     protected $logged_in;
 
     /**
+     * The adapter used to save the user's data
+     *
      * @var ArrayLike
      */
     protected $adapter;
@@ -28,12 +42,14 @@ class DualAdapter implements ArrayLike {
      */
     public function __construct() {
         $this->logged_in = Request::has('user_id');
+
         if ($this->logged_in) {
-            $adapter = Config::get('split.logged_in_adapter');
+            $adapter = \App::make("split_config")->logged_in_adapter;
         } else {
-            $adapter = Config::get('split.logged_out_adapter');
+            $adapter = \App::make("split_config")->logged_out_adapter;
         }
-        $adapters = Config::get('split.adapters');
+
+        $adapters      = \App::make("split_config")->adapters;
         $this->adapter = new $adapters[$adapter]();
     }
 

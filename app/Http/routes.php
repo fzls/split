@@ -38,7 +38,15 @@ Route::group(['as' => 'dashboard.'], function () {
 });
 
 Route::get('/test', function (Request $request) {
-    var_dump(Helper::ab_test('test_ab',['success','fail','unkown']));
+    $alts = collect([[1,2,3,'test'=>100,'blue','red'=>1000]]);
+    var_dump($alts->collapse());
+//    var_dump(__DIR__);
+//    var_dump( app_path('Impl/exceptions.php'));
+//    var_dump( app_path('Impl/Persistence/adapter.php'));
+//    var_dump( __DIR__ . '/../Impl/Persistence/adapter.php');
+//    var_dump($_SERVER['SERVER_ADDR']);
+//    var_dump($_SERVER['DOCUMENT_ROOT']);
+//    var_dump(Helper::ab_test('test_ab',['success','fail','unkown']));
 //    $t = new Carbon();
 //    var_dump($t->toAtomString());
 //    var_dump($t->toCookieString());

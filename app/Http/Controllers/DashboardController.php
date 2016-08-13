@@ -18,7 +18,7 @@ class DashboardController extends Controller
 
         $metrics = Metric::all();
 
-        $current_env = Config::get('app.env');
+        $current_env = App::make('split_config')->current_environment;
 
         return view('dashboard.index', [
             'experiments' => $experiments,

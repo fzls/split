@@ -11,11 +11,12 @@ namespace Split\Impl\Persistence;
 use Illuminate\Support\Collection;
 use Config;
 
+use Illuminate\Support\Facades\App;
 use Split\Contracts\Persistence\ArrayLike;
 use Split\Impl\InvalidPersistenceAdapterError;
 
 /**
- * fetch adapter for user
+ * Fetch adapter for user
  *
  * @return ArrayLike
  * @throws InvalidPersistenceAdapterError
@@ -23,9 +24,9 @@ use Split\Impl\InvalidPersistenceAdapterError;
 function adapter() {
     $adapter = \App::make('split_config')->persistence;
     if (is_null($adapter)) {
-        require_once __DIR__ . '/../exceptions.php';
-        $given     = Config::get('split.adapter');
-        $available = implode(', ', array_keys(Config::get('split.adapters')));
+        require_once app_path('Impl/exceptions.php');/*TODO: make it autoloaded*/
+        $given     = \App::make("split_config")->adapter;
+        $available = implode(', ', array_keys(\App::make("split_config")->adapters));
         throw new InvalidPersistenceAdapterError("Wrong adapter name:[$given] given, only support $available");
     }
 

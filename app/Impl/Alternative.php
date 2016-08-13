@@ -20,22 +20,27 @@ class Alternative {
      * @var string The name of the alternative
      */
     public $name;
+
     /**
      * @var string The name of experiment that this alternative belongs to
      */
     public $experiment_name;
+
     /**
      * @var int The weight of the Alternative
      */
     public $weight;
+
     /**
      * @var float The probability of being the winner
      */
     protected $p_winner;
+
     /**
      * @var string The key used to save Alternative's info to the Redis
      */
     protected $key;
+
     /**
      * @var \Predis\Client The Redis client
      */
@@ -44,24 +49,28 @@ class Alternative {
     /**
      * Alternative constructor.
      *
-     * @param string|Collection  $name
-     * @param string $experiment_name
+     * @param string|Collection|array $name
+     * @param string                  $experiment_name
      */
     public function __construct($name, $experiment_name) {
         $this->experiment_name = $experiment_name;
 
+        if (is_array($name)) {
+            $name = collect($name);
+        }
+
         if ($name instanceof Collection) {
             /*['blue'=>'23']*/
-            $this->name = $name->keys()->first();
+            $this->name   = $name->keys()->first();
             $this->weight = $name->values()->first();
         } else {
             /*'blue'*/
-            $this->name = $name;
+            $this->name   = $name;
             $this->weight = 1;
         }
-        $p_winner = 0.0;
-        $this->key = "$this->experiment_name:$this->name";
-        $this->redis = \App::make('split_redis');
+        $this->p_winner = 0.0;
+        $this->key      = "$this->experiment_name:$this->name";
+        $this->redis    = \App::make('split_redis');
 
     }
 
@@ -225,7 +234,7 @@ class Alternative {
      * @return bool
      */
     public function is_control() {
-        return $this->experiment()->control()->name == $this->name;
+        return $this->experiment()->control()->name === $this->name;
     }
 
     /**
@@ -251,20 +260,21 @@ class Alternative {
     }
 
     /**
-     * Calculate the z-score of the alternative(use control for comparison)
+     * Calculate the z-score of the alternative(use control for comparison).
+     *
+     * p_a = Pa = proportion of users who converted within the experiment split (conversion rate)
+     * p_c = Pc = proportion of users who converted within the control split (conversion rate)
+     * n_a = Na = the number of impressions within the experiment split
+     * n_c = Nc = the number of impressions within the control split
      *
      * @param null|string $goal
      *
      * @return float|string
      */
     public function z_score($goal = null) {
-        # p_a = Pa = proportion of users who converted within the experiment split (conversion rate)
-        # p_c = Pc = proportion of users who converted within the control split (conversion rate)
-        # n_a = Na = the number of impressions within the experiment split
-        # n_c = Nc = the number of impressions within the control split
-        $control = $this->experiment()->control();
+        $control     = $this->experiment()->control();
         $alternative = $this;
-        if ($control->name == $alternative->name) return 'N/A';
+        if ($control->name === $alternative->name) return 'N/A';
 
         $p_a = $alternative->conversion_rate($goal);
         $p_c = $control->conversion_rate($goal);
@@ -290,31 +300,25 @@ class Alternative {
      * @throws \InvalidArgumentException
      */
     public function validate() {
-        if (!is_string($this->name)/* && !$this->hash_with_correct_values($this->name)*/)
+        if (!is_string($this->name))
             throw new \InvalidArgumentException('Alternative must be a string');
     }
 
+    /**
+     * Reset the alternative's data in the redis
+     */
     public function reset() {
-        $this->redis->hmset($this->key, ['participant_count'=> 0, 'completed_count'=> 0]);
-        if (!$this->goals()->isEmpty()) {
-            foreach ($this->goals() as $goal) {
-                $field = "completed_count:$goal";
-                $this->redis->hset($this->key, $field, 0);
-            }
+        $this->redis->hmset($this->key, ['participant_count' => 0, 'completed_count' => 0]);
+        foreach ($this->goals() as $goal) {
+            $field = "completed_count:$goal";
+            $this->redis->hset($this->key, $field, 0);
         }
     }
 
+    /**
+     * Delete this alternative's data in the redis
+     */
     public function delete() {
         $this->redis->del($this->key);
     }
-
-    /*private function hash_with_correct_values($name) {
-       //fixme : the original seems to be wrong it is not necessary to do this
-        return true;
-
-    }*/
-
-
 }
-
-?>

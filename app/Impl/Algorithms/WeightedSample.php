@@ -25,7 +25,7 @@ class WeightedSample implements SamplingAlgorithm {
 
     function choose_alternative($experiment) {
         /**
-         * @var Collection $weights 
+         * @var Collection $weights
          */
         $weights = $experiment->alternatives->pluck('weight');
 

@@ -16,10 +16,22 @@ use Config;
 
 use Split\Contracts\Persistence\ArrayLike;
 
+/**
+ * Class RedisAdapter
+ * @package Split\Impl\Persistence
+ */
 class RedisAdapter implements ArrayLike {
-    protected $expire_seconds;
     /**
-     *  scheme: namespace:{user_id}
+     * The redis expire time(in seconds), if not set, will not be auto deleted by default.
+     *
+     * @var int
+     */
+    protected $expire_seconds;
+
+    /**
+     * The key used to save the user data.
+     * scheme: namespace:{user_id}
+     * by default, namespace is persistence
      *
      * @var string
      */
@@ -34,12 +46,11 @@ class RedisAdapter implements ArrayLike {
      * RedisAdapter constructor.
      */
     public function __construct() {
-        $key = Request::get('user_id');/*get from url or request(post)*/
-        $namespace = Config::get('split.redis_namespace');
-
-        $this->expire_seconds=Config::get('split.redis_expires');
-        $this->redis_key = $namespace . ':' . $key;
-        $this->redis = \App::make('split_redis');
+        $key                  = Request::get('user_id');/*get from url or request(post)*/
+        $namespace            = \App::make("split_config")->redis_namespace;
+        $this->redis_key      = $namespace . ':' . $key;
+        $this->expire_seconds = \App::make("split_config")->redis_expires;
+        $this->redis          = \App::make('split_redis');
     }
 
 
@@ -52,7 +63,7 @@ class RedisAdapter implements ArrayLike {
     }
 
     public function offsetExists($field) {
-        return $this->redis->hGet($this->redis_key, $field) != False;
+        return $this->redis->hGet($this->redis_key, $field) != false;
     }
 
     public function offsetGet($field) {

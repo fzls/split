@@ -27,12 +27,14 @@ class CookieAdapter implements ArrayLike {
      * @var string
      */
     protected $cookie_namespace;
+
     /**
      * the default time of the Cookie expires time(in minute)
      *
      * @var int
      */
     protected $expires;
+
     /**
      * to keep synced with changed made to the user's cookie
      * when we need to change the cookie, we change the buffer first, then save that to user
@@ -46,9 +48,9 @@ class CookieAdapter implements ArrayLike {
      * CookieAdapter constructor.
      */
     public function __construct() {
-        $this->cookie_namespace = Config::get('split.cookie_namespace');
-        $this->expires = Config::get('split.cookie_expires');
-        $this->buffer = $this->hash();
+        $this->cookie_namespace = \App::make('split_config')->cookie_namespace;
+        $this->expires          = \App::make("split_config")->cookie_expires;
+        $this->buffer           = $this->hash();
     }
 
     public function delete($key) {
@@ -76,11 +78,12 @@ class CookieAdapter implements ArrayLike {
     }
 
     /**
-     * deserialize data from user cookie into buffer for modification
+     * Deserialize data from user cookie into buffer for modification
+     *
      * @return Collection
      */
     public function hash() {
-        if ($this->buffer){
+        if ($this->buffer) {
             return $this->buffer;
         }
         if (Cookie::has($this->cookie_namespace)) {
@@ -92,6 +95,11 @@ class CookieAdapter implements ArrayLike {
         return collect([]);
     }
 
+    /**
+     * Put the user data in the cookie queue, which will be send to user as in the response
+     *
+     * @param $value
+     */
     public function set_cookie($value) {
         Cookie::queue(Cookie::make($this->cookie_namespace, json_encode($value), $this->expires));
     }
