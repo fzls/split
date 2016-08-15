@@ -70,15 +70,15 @@ $experiment->calc_winning_alternatives();
                 <td>{{$alternative->unfinished_count()}}</td>
                 <td>{{$alternative->completed_count($goal)}}</td>
                 <td>
-                    {{round($alternative->conversion_rate($goal)*100,2)}}
+                    {{round($alternative->conversion_rate($goal)*100,2)}}%
                     @if($experiment->control()->conversion_rate($goal)>0 && !$alternative->is_control())
                         @if($alternative->conversion_rate($goal)>$experiment->control()->conversion_rate($goal))
                             <span class="better">
-                        +{{round($alternative->conversion_rate($goal)/$experiment->control()->conversion_rate($goal)*100-100,2)}}
+                        +{{round($alternative->conversion_rate($goal)/$experiment->control()->conversion_rate($goal)*100-100,2)}}%
                     </span>
                         @elseif($alternative->conversion_rate($goal)<$experiment->control()->conversion_rate($goal))
                             <span class="worse">
-                        {{round($alternative->conversion_rate($goal)/$experiment->control()->conversion_rate($goal)*100-100,2)}}
+                        {{round($alternative->conversion_rate($goal)/$experiment->control()->conversion_rate($goal)*100-100,2)}}%
                     </span>
                         @endif
                     @endif

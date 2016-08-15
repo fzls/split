@@ -38,8 +38,26 @@ Route::group(['as' => 'dashboard.'], function () {
 });
 
 Route::get('/test', function (Request $request) {
-    $alts = collect([[1,2,3,'test'=>100,'blue','red'=>1000]]);
-    var_dump($alts->collapse());
+    echo json_encode(Helper::ab_test('new_test', ['A' => 13, 'B' => 23, 'C', 'D' => 30]));
+    Helper::ab_finished('new_test');
+//    var_dump(Helper::ab_test('new_test',['A'=>13,'B'=>23,'C','D'=>30]));
+//    $a=['a'=>123];
+//    var_dump(json_encode($a));
+//    var_dump(json_decode(json_encode($a)));
+//    var_dump(collect(json_decode(json_encode($a))));
+//    $aa = json_decode(json_encode($a));
+//    var_dump(is_object($aa));
+//    var_dump(array_key_exists('a',$aa));
+//    $a='a';
+//    var_dump(json_encode($a));
+//    var_dump(json_decode(json_encode($a)));
+//    var_dump(collect(json_decode(json_encode($a))));
+//    $aa = json_decode(json_encode($a));
+//    var_dump(is_object($aa));
+//    var_dump(array_key_exists('a',$aa));
+//    var_dump(collect(['A'=>123,'b','c','d'=>11])->merge(collect([])));
+//    $alts = collect([[1,2,3,'test'=>100,'blue','red'=>1000]]);
+//    var_dump($alts->collapse());
 //    var_dump(__DIR__);
 //    var_dump( app_path('Impl/exceptions.php'));
 //    var_dump( app_path('Impl/Persistence/adapter.php'));

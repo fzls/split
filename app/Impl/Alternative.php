@@ -55,7 +55,7 @@ class Alternative {
     public function __construct($name, $experiment_name) {
         $this->experiment_name = $experiment_name;
 
-        if (is_array($name)) {
+        if (is_array($name)||is_object($name)) {
             $name = collect($name);
         }
 

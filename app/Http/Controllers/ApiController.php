@@ -5,6 +5,7 @@ namespace Split\Http\Controllers;
 use Illuminate\Http\Request;
 
 use Split\Http\Requests;
+use Split\Impl\Helper;
 
 class ApiController extends Controller
 {

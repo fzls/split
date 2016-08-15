@@ -16,6 +16,9 @@ use Illuminate\Support\Collection;
  * @package Split\Impl
  */
 class ExperimentCatalog {
+    /**
+     * @var \Predis\Client
+     */
     protected $redis;
 
     /**
@@ -64,6 +67,7 @@ class ExperimentCatalog {
      */
     public function find($name) {
         if (!$this->redis->exists($name)) return null;
+
         $e = new Experiment($name);
         $e->load_from_redis();
 
@@ -83,15 +87,12 @@ class ExperimentCatalog {
         if (!$alternatives instanceof Collection) {
             $alternatives = collect(func_get_args())->splice(2);
         }
-        if ($control instanceof Collection && $alternatives->count() == 0) {
-            list($control, $alternatives) = [$control->shift(), $control];
-        }
 
         list($experiment_name_with_version, $goals) = $this->normalize_experiment($metric_descriptor);
         $experiment_name = explode(':', $experiment_name_with_version)[0];
 
         return new Experiment($experiment_name, [
-            'alternatives' => is_null($control) ? $alternatives : $alternatives->prepend($control),
+            'alternatives' => collect($control)->merge($alternatives),
             'goals'        => $goals,
         ]);
     }

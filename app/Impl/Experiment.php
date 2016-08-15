@@ -17,6 +17,7 @@ use Split\Contracts\Algorithm\SamplingAlgorithm;
 
 /**
  * Class Experiment
+ *
  * @package Split\Impl
  */
 class Experiment implements \ArrayAccess {
@@ -126,10 +127,10 @@ class Experiment implements \ArrayAccess {
             $options = collect(
                 [
                     'alternati-ves' => $this->load_alternatives_from_configuration(),
-                    'goals'        => (new GoalsCollection($name))->load_from_configuration(),
-                    'metadata'     => $this->load_metadata_from_configuration(),
-                    'resettable'   => Helper::value_for($exp_config, 'resettable'),
-                    'algorithm'    => Helper::value_for($exp_config, 'algorithm'),
+                    'goals'         => (new GoalsCollection($name))->load_from_configuration(),
+                    'metadata'      => $this->load_metadata_from_configuration(),
+                    'resettable'    => Helper::value_for($exp_config, 'resettable'),
+                    'algorithm'     => Helper::value_for($exp_config, 'algorithm'),
                 ]
             );
             /*NOTE: check if need to load from redis when configuration is also failed*/
@@ -141,7 +142,7 @@ class Experiment implements \ArrayAccess {
         $this->set_alternatives_and_options($options);
 
         $this->experiment_config_key = "experiment_configurations:$this->name";
-        $this->redis = \App::make('split_redis');
+        $this->redis                 = \App::make('split_redis');
     }
 
     /**
@@ -204,13 +205,14 @@ class Experiment implements \ArrayAccess {
     public function normalize_raw_alternative($alts) {
         /*alts = ['blue'=>1,'red'=>2] or ['blue','red']*/
         $normalized_alternatives = collect([]);
-        foreach ($alts as $key=>$val){
-        if (is_int($key)) {/*['blue','red']*/
+        foreach ($alts as $key => $val) {
+            if (is_int($key)) {/*['blue','red']*/
                 $normalized_alternatives->push($val);
             } else {/*['blue'=>1,'red'=>2]*/
                 $normalized_alternatives->push([$key => $val]);
             }
-    }
+        }
+
         return $normalized_alternatives;
     }
 
@@ -250,7 +252,7 @@ class Experiment implements \ArrayAccess {
                 $this->alternatives->each(function (Alternative $a) { $a->save(); });
                 $this->goals_collection()->save();
                 $this->save_metadata();
-                $this->alternatives->reverse()->each(function (Alternative $a) { $this->redis->lpush($this->name, $a->name); });
+                $this->alternatives->reverse()->each(function (Alternative $a) { $this->redis->lpush($this->name, json_encode([$a->name => $a->weight])); });
             }
         }
 
@@ -737,7 +739,7 @@ class Experiment implements \ArrayAccess {
     public function calc_beta_params($goal = null) {
         $beta_params = collect([]);
         foreach ($this->alternatives as $alternative) {
-            /* @var Alternative $alternative*/
+            /* @var Alternative $alternative */
             $conversions = $alternative->completed_count($goal);
             $alpha       = 1 + $conversions;
             $beta        = 1 + $alternative->participant_count() - $conversions;
@@ -838,8 +840,10 @@ class Experiment implements \ArrayAccess {
             $alts->reverse()->each(function ($a) { $this->redis->lpush($this->name, $a); });
         }
 
+        /*fixme:::::::[a=>123],a*/
+
         return collect($this->redis->lrange($this->name, 0, -1))->map(function ($alt_name) {
-            return new Alternative($alt_name, $this->name);
+            return new Alternative(json_decode($alt_name), $this->name);
         });
     }
 
@@ -866,7 +870,7 @@ class Experiment implements \ArrayAccess {
      * @return GoalsCollection
      */
     private function goals_collection() {
-        if (is_null($this->goals_collection)){
+        if (is_null($this->goals_collection)) {
             $this->goals_collection = new GoalsCollection($this->name, $this->goals);
         }
 

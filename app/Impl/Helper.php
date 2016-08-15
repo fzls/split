@@ -18,6 +18,7 @@ use Illuminate\Support\Collection;
  * @package Split\Impl
  */
 class Helper {
+    /*TODO : start from HERE*/
     const OVERRIDE_PARAM_NAME = "ab_test";
 
     /**
@@ -40,7 +41,7 @@ class Helper {
         try {
             $experiment = \App::make('split_catalog')->find_or_initialize($metric_descriptor, $control, $alternatives);
             if (\App::make('split_config')->enabled) {
-                $experiment->save();
+                 $experiment->save();
                 $trial = new Trial([
                                        'user'       => self::ab_user(),
                                        'experiment' => $experiment,
@@ -141,13 +142,14 @@ class Helper {
     }
 
     public static function override_alternative($experiment_name) {
-        return !\App::runningInConsole()
-        && \Request::has('OVERRIDE_PARAM_NAME')
+        /*can use via browser, or in console via api*/
+        return /*!\App::runningInConsole()
+        &&*/ \Request::has('OVERRIDE_PARAM_NAME')
         && collect(\Request::input('OVERRIDE_PARAM_NAME'))->has($experiment_name);
     }
 
     public static function split_generically_disabled() {
-        return !\App::runningInConsole() && \Request::has('SPLIT_DISABLE');
+        return /*!\App::runningInConsole() && */\Request::has('SPLIT_DISABLE');
     }
 
     public static function ab_user() {
@@ -159,7 +161,7 @@ class Helper {
     }
 
     public static function is_robot() {
-        return !\App::runningInConsole() && preg_match(\App::make('split_config')->robot_regex(), \Request::server('HTTP_USER_AGENT'));
+        return /*!\App::runningInConsole() && */preg_match(\App::make('split_config')->robot_regex(), \Request::server('HTTP_USER_AGENT'));
     }
 
     public static function is_ignored_ip_address() {
@@ -167,7 +169,7 @@ class Helper {
 
 
         foreach (\App::make('split_config')->ignore_ip_addresses as $ip) {
-            if (!\App::runningInConsole() && (\Request::ip() == $ip || preg_match($ip, \Request::ip())))
+            if (/*!\App::runningInConsole() && */(\Request::ip() == $ip || preg_match($ip, \Request::ip())))
                 return true;
         }
 
@@ -178,16 +180,21 @@ class Helper {
         return self::ab_user()->active_experiments();
     }
 
+    /**
+     * @param $metric_descriptor
+     *
+     * @return array
+     */
     public static function normalize_metric($metric_descriptor) {
         if ($metric_descriptor instanceof Collection) {
-            $experiment_name = $metric_descriptor->keys()->first();
+            $metric_name = $metric_descriptor->keys()->first();
             $goals = collect($metric_descriptor->values()->first());
         } else {
-            $experiment_name = $metric_descriptor;
+            $metric_name = $metric_descriptor;
             $goals = collect([]);
         }
 
-        return [$experiment_name, $goals];
+        return [$metric_name, $goals];
     }
 
     public static function control_variable($control) {
